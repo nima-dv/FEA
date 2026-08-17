@@ -1,0 +1,18 @@
+# Extras on top of dolfinx/dolfinx:stable (which already has numpy, mpi4py, petsc4py, ufl, basix).
+gmsh          # mesh generation (fluid + steel wall + crack geometry, Step 4)
+meshio        # mesh IO / conversion to DOLFINx
+pyvista       # in-container 3D/2D field plotting (optional; ParaView on host is primary)
+matplotlib    # A-scans, arrival-time plots
+scipy         # signal processing (toneburst, envelopes, arrival-time picking)
+h5py          # read/write XDMF/HDF5 field output
+
+# --- needed to run the research team's `beamformer` package (see lib/bf_loader.py) ---
+# Exactly the modules its imaging path (utils/ray/tof/mig/plot) imports and that the
+# dolfinx base image lacks; determined empirically by tools/probe_bf_deps.py, not guessed.
+# numba is already present in the base image. cli/ and readers/ are never imported, so
+# their AWS + DarkVision-internal deps (boto3, s3path, ilipy, ilidataset) are NOT needed.
+pandas                 # bf.utils
+tqdm                   # bf.tof progress reporting
+opencv-python-headless  # cv2, used by bf.tof._raytracing (headless: no GUI libs in container)
+ckmeans-1d-dp          # bf.utils._picking
+scikit-learn           # bf.utils, imported inside a function; pinned here to avoid a mid-run failure

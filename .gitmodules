@@ -1,0 +1,4 @@
+[submodule "src/kwave"]
+	path = src/kwave
+	url = https://github.com/darkvisiontech/Research.git
+	branch = master

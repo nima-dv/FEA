@@ -1,0 +1,32 @@
+# Python caches / envs
+__pycache__/
+*.pyc
+.venv/
+
+# Regenerable heavy artefacts under results/. Figures (.png/.gif) ARE tracked, since
+# they are the deliverable; meshes and field dumps are not, because they are large and
+# a script reproduces them (the ILI mesh rebuilds in ~4 s).
+results/**/*.msh
+results/**/*.h5
+results/**/*.xdmf
+results/**/*.npz
+results/**/*.bp
+
+# Stray outputs if a script ever writes to the project root by mistake.
+/*.xdmf
+/*.h5
+/*.bp
+/*.pvd
+/*.vtu
+/*.png
+/*.mp4
+
+# Animations are regenerable and can be enormous - the first draft of the wavefield GIF was
+# 64 MB, which git warns about and which no reviewer wants to clone. Render them with
+# viz/wavefield_gif.py (--stride / --colors keep them to a few MB) and add a specific file
+# with `git add -f` only when it is small enough to be worth tracking.
+results/viz/*.gif
+
+# Generated artifact pages carry ~10 MB of inlined base64 images. Rebuild them with
+# viz/build_artifacts.py rather than tracking them.
+results/artifacts/*.html
