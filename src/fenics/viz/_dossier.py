@@ -493,7 +493,7 @@ temporal dispersion, and timing accuracy is the whole point of this simulation.<
 
 <h2 class="col"><span class="num">13</span>Slide map</h2>
 <div class="col"><p>Suggested deck order. Figures live under
-<code>Fea/research/fenics/results/</code>.</p></div>
+<code>src/fenics/results/</code>.</p></div>
 <div class="slides">
   <div class="slide"><div><b>The inspection problem</b>
     <span>Pipe, wall, a 42%-through-wall crack on the far side. The answer is a time, not a
@@ -512,7 +512,7 @@ temporal dispersion, and timing accuracy is the whole point of this simulation.<
     round-trip verified to the same pixel. <em>no figure</em></span></div></div>
   <div class="slide"><div><b>Validation against exact solutions</b>
     <span>0.81% mode conversion, ~1% defect scattering, no fitted parameters.
-    <em>fluid_solid/mode_conversion.png + cavity_scattering/dscf_vs_exact.png</em></span></div></div>
+    <em>zoeppritz/amplitude.png + cavity_scattering/dscf_vs_exact.png</em></span></div></div>
   <div class="slide"><div><b>Head-to-head</b>
     <span>The two-angle table; 29/30 robustness checks.
     <em>table + compare/compare_p20deg.png</em></span></div></div>
@@ -528,8 +528,8 @@ temporal dispersion, and timing accuracy is the whole point of this simulation.<
     <span>&minus;20&deg; numbers written down first; landed inside the range.
     <em>quote the range and the result</em></span></div></div>
   <div class="slide"><div><b>The experiment that failed</b>
-    <span>C4: staircasing changes almost nothing; claim withdrawn.
-    <em>compare/c4_staircase_vs_conforming.png</em></span></div></div>
+    <span>C4 and C5: both candidate explanations measured and eliminated; the geometry claim
+    withdrawn. <em>no figure &mdash; quote 0.61 dB and 0.07 dB</em></span></div></div>
   <div class="slide"><div><b>What we cannot claim</b>
     <span>The ledger: lower bounds, sub-pixel, the open question, the withdrawn claim.
     <em>table</em></span></div></div>
@@ -538,7 +538,7 @@ temporal dispersion, and timing accuracy is the whole point of this simulation.<
 <footer>
   <p>Every figure regenerates from committed code and cached data; nothing is hand-drawn. Full
   record including all traps and withdrawn claims:
-  <code>C:/code/readme/rnd-nima-fea-README.md</code>. Reproduction recipe:
-  <code>Fea/research/fenics/README.md</code>.</p>
+  <code>F:/code/readme/rnd-nima-FEA-README.md</code>. Reproduction recipe:
+  <code>src/fenics/README.md</code>.</p>
 </footer>
 """
