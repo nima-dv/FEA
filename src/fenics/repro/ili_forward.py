@@ -203,6 +203,24 @@ def main() -> None:
                          "wavelength on a 0.25 mm mesh - BELOW Nyquist - and the rendered "
                          "wavefronts come out beaded with aliasing speckle. Degree 2 gives 9 "
                          "samples per quad, ~4.5 per wavelength.")
+    ap.add_argument("--abc-legacy", action="store_true",
+                    help="use the OLD absorbing boundary: one speed (c_P) on both displacement "
+                         "components everywhere in the steel. Wrong wave for a shear method - it "
+                         "reflects 30%% of a shear wave's amplitude at normal incidence. Kept "
+                         "only so the improvement can be measured as a single variable.")
+    ap.add_argument("--sponge-mm", type=float, default=0.0, metavar="L",
+                    help="graded absorbing sponge of this width in EACH lateral margin, "
+                         "outboard of the aperture (0 = off). Same material, so no impedance "
+                         "jump; damping ramps quadratically from zero so there is no sharp "
+                         "feature to reflect off. 8.0 is ~10 shear wavelengths at 4 MHz and "
+                         "fits the existing dead margin, so it costs no extra cells.")
+    ap.add_argument("--sponge-db", type=float, default=40.0, metavar="DB",
+                    help="target ROUND-TRIP attenuation through the sponge, in dB (default 40). "
+                         "MORE IS NOT BETTER: tests/test_abc.py measures the actual return and "
+                         "it is best at 40 (-55 dB achieved), then DEGRADES - 60 gives -47, 200 "
+                         "gives -43 - because damping strong enough to stop the wave makes the "
+                         "layer effectively rigid, and a rigid layer reflects. Do not raise this "
+                         "'to be safe'.")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -297,14 +315,76 @@ def main() -> None:
 
     # --- absorbing boundary: dashpot on the array plane and the side walls ---------------
     ds_all = ufl.Measure("ds", domain=domain, subdomain_data=ft)
-    # traction = -rho c u_dot ; exact at normal incidence. Fluid c on the array plane,
-    # and the local material's c on the sides (the ABC facets touch both regions).
-    c_abc = ufl.conditional(ufl.gt(mu, 0.0), C_P, C_F)
-    damp_form = rho * c_abc * ufl.inner(v, ufl.as_vector((1.0, 1.0))) * (
-        ds_all(TAG_ARRAY) + ds_all(TAG_ABC))
+    nrm = ufl.FacetNormal(domain)
+    # Lysmer-Kuhlemeyer dashpot:
+    #     traction = -rho [ c_P (u_dot.n) n  +  c_S (u_dot - (u_dot.n) n) ]
+    # A P wave leaves NORMAL to the facet and must see rho*c_P; an S wave shears ALONG it and
+    # must see rho*c_S. Every absorbing facet here is AXIS-ALIGNED (side walls x = const, the
+    # z = 0 plane), so the tensor rho[c_P nn' + c_S(I - nn')] is diagonal and the
+    # per-component coefficients below are EXACT - nothing is dropped, and the damping stays a
+    # lumped diagonal vector so the leapfrog is unchanged.
+    #
+    # WHY THIS CHANGED. The previous version used ONE speed (C_P) for BOTH components
+    # everywhere in the steel. For TT-T that is the wrong wave: the beam in the steel is
+    # SHEAR, so it met rho*C_P against its true rho*C_S and reflected
+    #     |Z_S - Z_P| / (Z_S + Z_P) = 30% of its amplitude, i.e. -10.6 dB,
+    # at NORMAL incidence, off whichever side wall it was travelling toward. Measured
+    # consequence: FEM wall clutter was 1.8-4.2 dB WORSE than k-Wave's in the last ~10 mm
+    # before that wall, and better than k-Wave's everywhere else - and the excess swapped
+    # ends when the steering angle flipped. --abc-legacy restores it for comparison.
+    cP_eff = ufl.conditional(ufl.gt(mu, 0.0), C_P, C_F)
+    cS_eff = ufl.conditional(ufl.gt(mu, 0.0), C_S, 0.0)   # water carries no shear wave
+    if args.abc_legacy:
+        c_x = c_z = rho * cP_eff
+    else:
+        c_x = rho * (cP_eff * nrm[0]**2 + cS_eff * (1.0 - nrm[0]**2))
+        c_z = rho * (cP_eff * nrm[1]**2 + cS_eff * (1.0 - nrm[1]**2))
+    damp_form = (c_x * v[0] + c_z * v[1]) * (ds_all(TAG_ARRAY) + ds_all(TAG_ABC))
     c_damp = assemble_vector(form(damp_form)).array.copy()
     print(f"      dashpot dofs {(c_damp != 0).sum()} "
-          f"(array + side facets; OD/notch stay traction-free)")
+          f"({'LEGACY scalar c_P' if args.abc_legacy else 'directional c_P/c_S'}"
+          f"; array + side facets; OD/notch stay traction-free)")
+
+    # --- optional sponge layer in the dead margins ---------------------------------------
+    # A single-facet dashpot is first order: it is exact only at normal incidence and leaks
+    # badly at grazing angles. A sponge fixes what the dashpot cannot.
+    #
+    # Crucially it uses the SAME material - same rho, same speeds - so there is no impedance
+    # jump for the wave to reflect off. What ramps up is a viscous damping d(x), quadratically
+    # from ZERO at the inner edge. Gradual is the whole trick: any abrupt change, in material
+    # OR in damping, reflects. The wave is then attenuated on the way in and again on the way
+    # back out, so what returns is d_max-suppressed twice.
+    #
+    # It lives in the margins OUTBOARD of the aperture, which contribute nothing to the
+    # image, so it costs no extra cells - the domain is already 8 mm wider than the array at
+    # each end, and 8 mm is ~10 shear wavelengths at 4 MHz.
+    if args.sponge_mm > 0:
+        L = args.sponge_mm * 1e-3
+        # Derived from the array spec, not hard-coded, so this stays correct if the aperture
+        # or element count changes. Nothing here depends on the steering angle.
+        ap_x0, ap_x1 = ARRAY_X0, ARRAY_X0 + (N_ELEM - 1) * PITCH
+        xgeo = domain.geometry.x
+        x_lo, x_hi = float(xgeo[:, 0].min()), float(xgeo[:, 0].max())
+        assert x_lo + L <= ap_x0 + 1e-9, (
+            f"sponge would reach into the aperture on the left: margin "
+            f"{(ap_x0 - x_lo)*1e3:.2f} mm < requested {args.sponge_mm} mm")
+        assert x_hi - L >= ap_x1 - 1e-9, (
+            f"sponge would reach into the aperture on the right: margin "
+            f"{(x_hi - ap_x1)*1e3:.2f} mm < requested {args.sponge_mm} mm")
+        xs = ufl.SpatialCoordinate(domain)
+        s_l = ufl.max_value(0.0, (x_lo + L - xs[0]) / L)     # 0 at inner edge -> 1 at wall
+        s_r = ufl.max_value(0.0, (xs[0] - (x_hi - L)) / L)
+        s = ufl.max_value(s_l, s_r)
+        # Amplitude decays as exp(-d*x/(2*rho*c)). For d = d_max*s^2 the integral over the
+        # layer is d_max*L/3, so the ROUND TRIP exponent is d_max*L/(3*rho*c). Setting that
+        # to (dB/20)*ln(10) gives the constant below (= 3*ln(10)/20). Size it on the FASTEST
+        # local wave, which attenuates least; the slow wave then gets more than asked for.
+        d_max = 0.34539 * rho * cP_eff * args.sponge_db / L
+        c_sponge = assemble_vector(
+            form(d_max * s**2 * ufl.inner(v, ufl.as_vector((1.0, 1.0))) * ufl.dx)).array
+        c_damp = c_damp + c_sponge
+        print(f"      sponge {args.sponge_mm:.1f} mm each margin, target round trip "
+              f"-{args.sponge_db:.0f} dB, {(c_sponge != 0).sum()} dofs damped")
 
     # --- per-element source and pressure functionals -------------------------------------
     # Mark each element's active face with its own facet tag so we can assemble one
