@@ -13,6 +13,9 @@
 #       beamformer package, via the git submodule. Mounted :ro on purpose - that repo
 #       is read-only for us, and lib/bf_loader.py imports it in place rather than
 #       pip-installing it, so nothing is ever written into their checkout.)
+#   ../../data               -> /data    (READ-ONLY: the research team's raw k-Wave runs.
+#       Lives outside /work because it is gitignored bulk data, ~423 MB. Feed it to
+#       tools/extract_kwave_case.py as --run /data/derrell/<run folder>.)
 param([Parameter(ValueFromRemainingArguments = $true)] $Cmd)
 $ErrorActionPreference = 'Stop'
 $here  = $PSScriptRoot
@@ -31,6 +34,12 @@ if (Test-Path (Join-Path $bfDir 'beamformer\__init__.py')) {
 } else {
     Write-Host "note: beamformer submodule not checked out; /opt/bf not mounted." -ForegroundColor DarkYellow
     Write-Host "      git submodule update --init --depth 1 ../kwave" -ForegroundColor DarkYellow
+}
+
+# The research team's raw runs. Read-only: we only ever extract from them.
+$dataDir = Join-Path $here '..\..\data'
+if (Test-Path $dataDir) {
+    $mounts += @('-v', "$((Resolve-Path $dataDir).Path):/data:ro")
 }
 
 # Fail early with a clear message if the Docker daemon isn't up.

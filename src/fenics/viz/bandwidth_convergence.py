@@ -34,20 +34,23 @@ OUT = Path(__file__).resolve().parents[1] / "results" / "viz"
 # Datasets: label -> (file, colour). All are the SAME scenario at +20 deg, so the only
 # difference in the spectra is numerical resolution.
 RUNS = [
-    ("FEM P3, scale 1.0", FW / "channel_data_p20deg.npz", "#c1443c"),
+    # The P3 s1.0 curve comes from the SNAPSHOT solve: same scenario, same mesh, same angle,
+    # degree 3 - asking for snapshots does not change the physics, so it is the P3 s1.0 run.
+    ("FEM P3, scale 1.0", FW / "channel_data_snap_p20deg.npz", "#c1443c"),
     ("FEM P4, scale 1.0", FW / "channel_data_deg4_p20deg.npz", "#e08214"),
     ("FEM P4, scale 0.8", FW / "channel_data_deg4_s0p8_p20deg.npz", "#1f6fb4"),
     ("k-Wave (50 um grid)", KW / "kwave_odnotch4mm_20.npz", "#111111"),
 ]
 
-# Measured image metrics for the same four runs, from repro/compare_images.py at +20 deg.
-# Transcribed rather than recomputed because reproducing them needs three more beamformer
-# passes; every value here appears in the branch README sections 4.7 and 4.11.
+# Image metrics from repro/compare_images.py at +20 deg. P3 s1.0 and P4 s0.8 are MEASURED -
+# re-beamformed from channel data on disk. P4 s1.0 is TRANSCRIBED from branch README 4.7: no
+# channel data for it survives and re-solving costs ~1.2 h for one interior ladder point. The
+# figure labels it, because a mixed-provenance plot that does not say so is a trap.
 METRICS = [
-    #  label,               notch extent [mm],  crack/clutter RMS [dB]
-    ("P3\ns1.0", 8.07, 12.2),
-    ("P4\ns1.0", 3.85, 19.5),
-    ("P4\ns0.8", 3.73, 24.0),
+    #  label,        notch extent [mm], crack/clutter RMS [dB], measured?
+    ("P3\ns1.0", 8.07, 12.2, True),
+    ("P4\ns1.0", 3.85, 19.5, False),
+    ("P4\ns0.8", 3.73, 24.0, True),
 ]
 KWAVE_EXTENT, KWAVE_CNR = 3.23, 22.8
 TRUE_EXTENT = 4.0
@@ -145,7 +148,9 @@ def main() -> None:
     axR.text(0.04, TRUE_EXTENT + 0.15, "TRUE 4.0 mm", fontsize=8.5, color="0.2")
     axR.axhline(KWAVE_EXTENT, color="#c1443c", ls="--", lw=1.6)
     axR.text(0.04, KWAVE_EXTENT - 0.45, "k-Wave 3.23 mm (-19%)", fontsize=8.5, color="#c1443c")
-    axR.set_xticks(x); axR.set_xticklabels([m[0] for m in METRICS], fontsize=9)
+    axR.set_xticks(x)
+    axR.set_xticklabels([m[0] if m[3] else m[0] + "\n(from README)" for m in METRICS],
+                        fontsize=9)
     axR.set_ylabel("imaged notch extent [mm]", color="#1f6fb4")
     axR.set_ylim(0, 9)
     axR.set_xlabel("refinement  ->")

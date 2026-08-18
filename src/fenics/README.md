@@ -5,14 +5,13 @@ containerised — **independent of the C++/CUDA `Fea` build** (this is not `Fea/
 reserved for the compiled `feapy` pybind11 module).
 
 > **The "why" — asks, constraints, frozen scenario, plan, current state, and the full results
-> tables — lives in the branch README: `C:/code/readme/rnd-nima-fea-README.md`. Read that first.**
+> tables — lives in the branch README: `F:/code/readme/rnd-nima-FEA-README.md`. Read that first.**
 > **This file is the "how": environment, layout, what each script does, and how to reproduce
 > the headline result.**
 
-> **READ-ONLY BOUNDARIES — see [`Fea/AGENTS.md`](../../AGENTS.md) before touching either.**
-> `F:\DarkVision Dropbox\...` and every non-DVCode repo (including the `kwave` submodule)
-> are **read-only**: read and list, never write/create/delete/move — not even a temp or probe file.
-> Writes go under `C:\code\DVCode\` (outside the submodule), the branch README, or the scratchpad.
+> **READ-ONLY BOUNDARY — see [`AGENTS.md`](../../AGENTS.md).** The `src/kwave` submodule
+> (`darkvisiontech/Research`) is the research team's: read and list, never write, commit or push.
+> Writes go under `F:\code\FEA\` (outside the submodule), the branch README, or the scratchpad.
 
 ---
 
@@ -70,14 +69,13 @@ container via Docker Desktop (WSL2). Nothing is installed on Windows itself.
 - **`dvfenics:latest`** is the older image, kept as a rollback.
 
 ```powershell
-cd C:\code\DVCode\Fea\research\fenics
-./run.ps1 python3 toys/check_dolfinx.py     # env smoke test -> DOLFINx 0.11.0 + OK
-./run.ps1 python3 lib/bf_loader.py          # prove their beamformer loads
+cd F:\code\FEA\src\fenics
+./run.ps1 python3 lib/bf_loader.py          # env smoke test: DOLFINx + their beamformer
 ./run.ps1                                   # interactive bash shell
 ```
 
-`run.ps1` mounts this folder read-write at `/work` and their beamformer **read-only** at `/opt/bf`.
-Override the image with `$env:DVFENICS_IMAGE`.
+`run.ps1` mounts this folder read-write at `/work`, their beamformer read-only at `/opt/bf`, and
+`../../data` read-only at `/data`. Override the image with `$env:DVFENICS_IMAGE`.
 
 **Gotchas that will waste your afternoon:**
 
@@ -93,15 +91,14 @@ Override the image with `$env:DVFENICS_IMAGE`.
 
 ## 2. Reproducing the headline result
 
-Data needed from Dropbox (read-only) is extracted first, then two solves and one comparison.
+Their raw runs in `data/derrell/` are extracted first, then two solves and one comparison.
 Total ~5 h of compute. Run from this folder.
 
 ```powershell
 # 1. Extract the research team's runs (their raw data stays untouched).
-#    Write the .npz UNDER results/ - it is gitignored there, it is inside the /work mount so
-#    no extra -v is needed, and unlike a session scratch directory it does not disappear.
+#    Write the .npz UNDER results/ - gitignored there, and inside the /work mount.
 ./run.ps1 python3 tools/extract_kwave_case.py `
-    --run "data/kwave_runs/new_sims/2026-08-11 12-46-37 Simulation_ODnotch4mm_20" `
+    --run "/data/derrell/2026-08-11 12-46-37 Simulation_ODnotch4mm_20" `
     --out results/kwave_cases/kwave_odnotch4mm_20.npz
 
 # 2. Build the conforming mesh at the working resolution  (~10 s)
@@ -133,7 +130,7 @@ Total ~5 h of compute. Run from this folder.
 # mesh conformity figure (needs the two healthy triangle meshes; no solve required)
 ./run.ps1 python3 mesh/ili_mesh.py --no-notch --no-plot
 ./run.ps1 python3 mesh/ili_mesh.py --no-notch --no-plot --staircase
-./run.ps1 python3 viz/mesh_zoom.py
+./run.ps1 python3 viz/mesh_zoom.py --cracked results/ili_mesh/ili_mesh_s0p8.msh
 ```
 
 ---
@@ -167,11 +164,10 @@ fenics/
 ├─ viz/                    Phase D: the demonstration figures and animations
 │   ├─ wavefield_gif.py        D1: the beam mode-converting at the ID and hitting the notch
 │   └─ mesh_zoom.py            D4: what "conforming" means, drawn from the real meshes
-├─ toys/                   capability evidence, one physics concept at a time
-├─ data/
-│   ├─ kwave_ili/PROVENANCE.md   submodule + Dropbox pointers, staleness lesson
-│   └─ kwave_runs/               their 3 new runs (GITIGNORED, 832 MB) + the driver .m
 └─ results/<name>/         outputs. Figures tracked; .npz/.msh/.h5/.xdmf gitignored.
+
+  ../../data/derrell/      their 3 runs, ~423 MB, GITIGNORED -> mounted read-only at /data
+  ../kwave/                submodule: their k-Wave driver .m + their beamformer
 ```
 
 ---
@@ -207,15 +203,6 @@ fenics/
 |---|---|---|
 | `validation/zoeppritz.py` | oblique fluid-solid reflection/transmission + **P→S mode conversion**, 0–60 deg through both critical angles | at 20 deg: \|R\| **0.10 %**, shear **0.81 %**, shear angle 0.55 deg |
 | `validation/cavity_scattering.py` | **defect scattering** vs the exact Pao & Mow series | 0.88 % / 1.01 % max error; complex gain unity to 0.5 % modulus, 0.2 deg phase |
-
-### Capability evidence (`toys/`)
-
-| Script | Proves | Validated result |
-|---|---|---|
-| `poisson.py` | the FEM pipeline and weak form | max nodal error **2.4e-14** |
-| `scalar_wave.py` / `scalar_wave_sem.py` | leapfrog + mass lumping; spectral elements are the timing lever | **2.19 % (P1) -> 0.001 % (P4)** |
-| `elastic_wave.py` | elastodynamics, both wave speeds | c_P **0.002 %**, c_S **0.000 %** |
-| `fluid_solid.py` | water/steel coupling with mu=0 | \|R\| **0.9351** = analytic, **0.00 %** |
 
 ---
 
@@ -257,8 +244,8 @@ CFL terms because water is 3.8x slower than steel).
 ## 6. Conventions
 
 - Root = infra; `lib/` = shared code; `mesh/` = geometry; `tools/` = utilities; `validation/` = V&V
-  against exact solutions; `repro/` = the ILI simulation and comparison; `toys/` = learning
-  examples; `results/<name>/` = outputs.
+  against exact solutions; `repro/` = the ILI simulation and comparison;
+  `viz/` = Phase D figures; `results/<name>/` = outputs.
 - **Cache heavy intermediates** (`channel_data_*.npz`, `images_*.npz`) so re-analysis and
   re-rendering never re-solve. All the comparison and robustness scripts read cached data.
 - Figures are tracked; large regenerable artefacts (`.npz`, `.msh`, `.h5`, `.xdmf`) are gitignored.

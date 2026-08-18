@@ -41,10 +41,29 @@ C5 = ("<strong>C5 came back a second null, and more strongly than predicted.</st
       "the absorbing layer, and its interface blending.")
 
 
+# Figures that were not regenerated for this run. A pitch scoped to ONE scenario does not
+# pay for the -20 deg, C4 and bandwidth-ladder solves, so rather than hard-failing we render
+# a visible placeholder and list what is absent. A silent gap would be worse than an obvious
+# one: the caption around a missing figure still claims a result.
+MISSING: list[str] = []
+
+_PLACEHOLDER = (
+    "data:image/svg+xml;base64," + base64.b64encode(
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">'
+        b'<rect width="800" height="200" fill="#e8ecf1" stroke="#b9c2ce" '
+        b'stroke-dasharray="8 6" stroke-width="2"/><text x="400" y="95" '
+        b'text-anchor="middle" font-family="system-ui,sans-serif" font-size="20" '
+        b'fill="#6b7684">figure not generated for this run</text><text x="400" y="125" '
+        b'text-anchor="middle" font-family="system-ui,sans-serif" font-size="15" '
+        b'fill="#8b95a4">out of scope: single-scenario pitch</text></svg>').decode()
+)
+
+
 def uri(rel: str) -> str:
     p = RES / rel
     if not p.exists():
-        raise SystemExit(f"missing asset: {p}")
+        MISSING.append(rel)
+        return _PLACEHOLDER
     mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
     return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
 
@@ -58,7 +77,10 @@ IMG = {
     "m20": "compare/compare_m20deg.png",
     "base": "compare/baseline_subtract_20deg.png",
     "c4": "compare/c4_staircase_vs_conforming.png",
-    "zoep": "fluid_solid/mode_conversion.png",
+    # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
+    # covers the same physics better - angle-resolved against the exact fluid-solid system
+    # through both critical angles, rather than one normal-incidence coefficient.
+    "zoep": "zoeppritz/amplitude.png",
     "pao": "cavity_scattering/dscf_vs_exact.png",
 }
 
@@ -221,6 +243,12 @@ def main() -> None:
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
         _brief.body({k: img[k] for k in ("p20", "m20", "base", "mesh", "c4", "bw")}, C5)))
+    if MISSING:
+        print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
+        for m in MISSING:
+            print(f"  - {m}")
+        print("Either run the solve that produces them, or cut the section that cites them "
+              "before this goes to anyone.")
 
 
 if __name__ == "__main__":

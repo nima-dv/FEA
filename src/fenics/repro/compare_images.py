@@ -49,6 +49,10 @@ def main() -> None:
     ap.add_argument("--ours", default=None, help="our FEM channel_data .npz")
     ap.add_argument("--theirs", default=None, help="their extracted k-Wave .npz")
     ap.add_argument("--ours-healthy", default=None, help="our healthy-wall FEM .npz")
+    ap.add_argument("--no-overlay", action="store_true",
+                    help="draw the raw image only - no wall arcs, no true-notch marker")
+    ap.add_argument("--tag", default="", help="suffix for the output figure, so a variant "
+                                              "run does not clobber the canonical one")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -121,11 +125,15 @@ def main() -> None:
         im = ax.imshow(db.T, origin="lower", aspect="equal", cmap="inferno",
                        vmin=-40, vmax=0,
                        extent=[r["x"][0], r["x"][-1], r["z"][0], r["z"][-1]])
-        th = np.linspace(-0.25, 0.25, 200)
-        for rr, c in ((FROZEN["r_id"] * 1e3, "cyan"), (FROZEN["r_od"] * 1e3, "cyan")):
-            ax.plot(rr * np.sin(th) + FROZEN["x_c"] * 1e3,
-                    rr * np.cos(th) + FROZEN["z_c"] * 1e3, c=c, lw=0.8)
-        ax.plot([38.25, 38.25], [25.525, 29.525], color="lime", lw=1.6)
+        # --no-overlay draws the raw image only. Asked for by the research team: the wall
+        # arcs and the lime true-notch marker tell the viewer where to look, so a reviewer
+        # cannot judge unaided detectability with them on.
+        if not args.no_overlay:
+            th = np.linspace(-0.25, 0.25, 200)
+            for rr, c in ((FROZEN["r_id"] * 1e3, "cyan"), (FROZEN["r_od"] * 1e3, "cyan")):
+                ax.plot(rr * np.sin(th) + FROZEN["x_c"] * 1e3,
+                        rr * np.cos(th) + FROZEN["z_c"] * 1e3, c=c, lw=0.8)
+            ax.plot([38.25, 38.25], [25.525, 29.525], color="lime", lw=1.6)
         ax.set_xlim(r["x"][0], r["x"][-1]); ax.set_ylim(0, 40)
         ax.set_title(f"{l}   (crack/clutter {r['m']['cnr_rms_db']:.1f} dB RMS)",
                      fontsize=10)
@@ -137,10 +145,12 @@ def main() -> None:
             "almost no mode conversion at normal incidence - so neither image is meaningful.")
     fig.suptitle(f"TT-T image, steering {args.angle:+.0f} deg - identical beamformer, "
                  f"forward solver is the only difference{note}", fontsize=11)
-    p = OUT / f"compare_{args.angle:+.0f}deg.png".replace("+", "p").replace("-", "m")
+    suffix = f"_{args.tag}" if args.tag else ("_nooverlay" if args.no_overlay else "")
+    p = OUT / (f"compare_{args.angle:+.0f}deg".replace("+", "p").replace("-", "m")
+               + f"{suffix}.png")
     fig.savefig(p, dpi=140, bbox_inches="tight")
     print(f"\nwrote {p}")
-    np.savez_compressed(OUT / f"images_{int(args.angle)}.npz",
+    np.savez_compressed(OUT / f"images_{int(args.angle)}{suffix}.npz",
                         **{f"{l}_img": results[l]["img"] for l in labels},
                         x=results[labels[0]]["x"], z=results[labels[0]]["z"])
 
