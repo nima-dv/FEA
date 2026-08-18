@@ -38,23 +38,20 @@ here, and it drives every numerical choice in the project.
 
 **Newton's second law for a continuous solid** (momentum balance):
 
-```
-rho * d2u/dt2 = div(sigma)
-```
+$$\rho \frac{\partial^{2}\mathbf{u}}{\partial t^{2}} = \nabla \cdot \boldsymbol{\sigma}$$
 
-In words: *mass x acceleration = net internal force.* `u` is displacement (how far a speck of
-material has moved), `rho` is density, `sigma` is stress (internal force per unit area).
+In words: *mass x acceleration = net internal force.* $\mathbf{u}$ is displacement (how far a speck of
+material has moved), $\rho$ is density, $\boldsymbol{\sigma}$ is stress (internal force per unit area).
 
 To close it you need a material law - **Hooke's law**, the 3-D version of "spring force is
 proportional to stretch":
 
-```
-sigma = lambda * div(u) * I  +  2 * mu * epsilon
-epsilon = 0.5 * (grad(u) + grad(u)^T)
-```
+$$\boldsymbol{\sigma} = \lambda (\nabla \cdot \mathbf{u}) \mathbf{I} + 2\mu \boldsymbol{\varepsilon}
+\qquad \text{where} \qquad
+\boldsymbol{\varepsilon} = \tfrac{1}{2}\left(\nabla \mathbf{u} + \nabla \mathbf{u}^{\mathsf{T}}\right)$$
 
-`lambda` and `mu` are the two stiffness constants (Lame parameters). `mu` is the **shear**
-stiffness - resistance to sliding. `epsilon` is strain.
+$\lambda$ and $\mu$ are the two stiffness constants (Lame parameters). $\mu$ is the **shear**
+stiffness - resistance to sliding. $\varepsilon$ is strain.
 
 **That is the entire model in both codes.** Substitute one into the other and you have a wave
 equation.
@@ -65,32 +62,27 @@ The equation supports two independent modes:
 
 | | motion relative to travel | speed | speed in steel | visible in |
 |---|---|---|---|---|
-| **P** (pressure, longitudinal) | along | `c_P = sqrt((lambda + 2mu)/rho)` | **5700 m/s** | `div(u)` |
-| **S** (shear, transverse) | across | `c_S = sqrt(mu/rho)` | **3100 m/s** | `curl(u)` |
+| **P** (pressure, longitudinal) | along | $c_P = \sqrt{(\lambda + 2\mu)/\rho}$ | **5700 m/s** | $\nabla \cdot \mathbf{u}$ |
+| **S** (shear, transverse) | across | $c_S = \sqrt{\mu/\rho}$ | **3100 m/s** | $\nabla \times \mathbf{u}$ |
 
 Inverting those gives the constants from measured speeds, which is how material data is actually
 supplied:
 
-```
-mu     = rho * c_S^2
-lambda = rho * (c_P^2 - 2*c_S^2)
-```
+$$\mu = \rho c_S^{2} \qquad\qquad \lambda = \rho \left(c_P^{2} - 2 c_S^{2}\right)$$
 
 They separate cleanly because of the **Helmholtz decomposition**: P is curl-free so it shows up
-in `div(u)`, S is divergence-free so it shows up in `curl(u)`. That is exactly how the wavefield
-animation renders them - `div u` in the water, `curl u` in the steel.
+in $\nabla \cdot \mathbf{u}$, S is divergence-free so it shows up in $\nabla \times \mathbf{u}$. That is exactly how the wavefield
+animation renders them - $\nabla \cdot \mathbf{u}$ in the water, $\nabla \times \mathbf{u}$ in the steel.
 
-### Water is the same equation with mu = 0
+### Water is the same equation with $\mu = 0$
 
-Set the shear stiffness to zero and Hooke's law collapses to `sigma = lambda * div(u) * I` -
+Set the shear stiffness to zero and Hooke's law collapses to $\boldsymbol{\sigma} = \lambda (\nabla \cdot \mathbf{u}) \mathbf{I}$ -
 pure pressure, no shear. **That IS the acoustic wave equation.** So one equation and one solver
-cover both water and steel; you only change `mu` per region. Water: 1500 m/s, `mu = 0`.
+cover both water and steel; you only change $\mu$ per region. Water: 1500 m/s, $\mu = 0$.
 
 The pressure the sensors record is therefore:
 
-```
-p = -lambda_water * div(u)
-```
+$$p = -\lambda_{\text{water}} \nabla \cdot \mathbf{u}$$
 
 This matters for correctness: the k-Wave sensors record **pressure**, so ours must output
 pressure too, not displacement.
@@ -104,16 +96,14 @@ This is the cleverest part of the inspection method and worth being able to expl
 Waves bend at an interface by **Snell's law**, which conserves the along-interface component of
 slowness:
 
-```
-sin(theta_water)/c_water = sin(theta_P)/c_P = sin(theta_S)/c_S
-```
+$$\frac{\sin \theta_{\text{water}}}{c_{\text{water}}} = \frac{\sin \theta_{P}}{c_{P}} = \frac{\sin \theta_{S}}{c_{S}}$$
 
 Put in 20 degrees from water into steel:
 
-- **P wave:** `sin(theta_P) = 5700 * sin(20) / 1500 = 1.30`. Greater than 1 - **no solution.**
+- **P wave:** $\sin \theta_P = 5700 \sin 20^\circ / 1500 = 1.30$. Greater than 1 - **no solution.**
   The compression wave cannot propagate into the steel; it becomes evanescent and dies at the
-  surface. It stops being possible past the **critical angle** `asin(1500/5700) = 15.3 deg`.
-- **S wave:** `sin(theta_S) = 3100 * sin(20) / 1500 = 0.707`, so `theta_S = 45 deg`.
+  surface. It stops being possible past the **critical angle** $\arcsin(1500/5700) = 15.3^\circ$.
+- **S wave:** $\sin \theta_S = 3100 \sin 20^\circ / 1500 = 0.707$, so $\theta_S = 45^\circ$.
 
 **So a 20 degree tilt in water produces an almost pure SHEAR wave at 45 degrees in the steel.**
 That is called **mode conversion**, and it is deliberate. The 45 degree shear beam skips off the
@@ -121,19 +111,67 @@ outer wall and strikes the crack side-on, where a narrow notch scatters strongly
 crack head-on at 0 degrees and it is nearly invisible - and there is essentially no mode
 conversion at normal incidence, so **0 degrees cannot test this method at all.**
 
-`TT-T` names this path: transmit takes a half-skip off the outer wall, receive is direct, both
-legs shear.
+### What "TT-T" means
+
+It is a **ray path**, written as a recipe. The letters before the dash are the **transmit** path,
+the letter after it is the **receive** path. Each letter is one leg of the journey, and the letter
+says which wave type that leg travels as:
+
+```
+L = Longitudinal  (compression, P)  5700 m/s in steel
+T = Transverse    (shear, S)        3100 m/s in steel
+```
+
+So **TT-T** = transmit as **two shear legs**, receive as **one shear leg**:
+
+```
+   array  ==========================================   z = 0
+             \                              ^
+      water   \  P, 1500 m/s                |  P back up to the array
+               v                            |
+   ID  --------[1]-------------------------[4]------   <-- mode conversion: P -> 45 deg S
+                 \                        /
+      steel       \  T                   /  T   (receive, "direct")
+                   \                    /
+   OD  -------------[2]====[CRACK]====[3]-----------
+                       half-skip along
+                       the outer wall
+```
+
+- **Transmit, leg 1 (T):** the converted shear wave crosses the wall, inner to outer.
+- **Transmit, leg 2 (T):** it takes a **half-skip** - one bounce off the outer wall - and arrives
+  at the crack from the side. "Half" because it bounces once; a full skip would return to the
+  inner wall first.
+- **Receive (T):** what the crack scatters travels **direct** back to the inner wall, converts
+  back to P in the water, and reaches the array.
+
+**Why the recipe matters.** The beamformer does not search for echoes; it *assumes* this path and
+computes how long it should take (§7). Feed it the wrong path and it looks up the wrong arrival
+time, so the crack images at the wrong depth or not at all. The path is the measurement.
+
+Consequences worth knowing:
+
+- **`TT-T` and the other multi-bounce modes apply an angle filter** (pass 60&deg;, cut 80&deg;) to
+  reject rays arriving at implausible angles. Simple modes like `TT` and `LL` do **not**. Applying
+  the filter to the wrong mode silently invalidates a comparison.
+- **One transmit event per steering angle.** This is not full-matrix capture - the whole array
+  fires once as a steered plane wave, and all 128 receive channels are summed. That is why the
+  steering angle is a first-class parameter of the scenario.
+- **A backwall crack needs the skip.** The notch is cut into the outer wall, so its faces are
+  roughly perpendicular to it. A 45&deg; shear wave and a perpendicular face form a corner
+  reflector, which is why 45&deg; shear is the classic choice for far-wall cracks - and why
+  getting $c_S$ and the 45&deg; right (§2, §3) matters more than any amplitude detail.
 
 ---
 
 ## 4. Two ways to approximate space
 
-Both codes need spatial derivatives (`div(sigma)`). That is the only place they diverge.
+Both codes need spatial derivatives ($\nabla \cdot \boldsymbol{\sigma}$). That is the only place they diverge.
 
 ### k-Wave: pseudospectral (PSTD)
 
 A **uniform square grid**, 50 um spacing. Derivatives are computed with the **Fourier
-transform** - in Fourier space, differentiating is multiplying by `i*k`. Each timestep is
+transform** - in Fourier space, differentiating is multiplying by $ik$. Each timestep is
 FFT, multiply, inverse FFT.
 
 - **Strength - genuinely excellent.** It uses *every* grid point to compute a derivative at one
@@ -151,8 +189,8 @@ FFT, multiply, inverse FFT.
 ### Ours: finite element / spectral element (FEniCS/DOLFINx)
 
 The domain is chopped into ~46,000 cells whose **edges lie exactly on the true geometry** - on
-the curved arcs, on the crack faces. Inside each cell the solution is a polynomial of degree `p`
-(we use `p = 4`).
+the curved arcs, on the crack faces. Inside each cell the solution is a polynomial of degree $p$
+(we use $p = 4$).
 
 - **Strength - geometry is exact**, and the crack is a genuine void whose faces get the
   physically correct condition: **traction-free**, meaning "nothing pushes back", which is what
@@ -163,12 +201,10 @@ the curved arcs, on the crack faces. Inside each cell the solution is a polynomi
 ### The weak form - why FEM is possible at all
 
 You cannot apply a second derivative to a piecewise polynomial; it does not have one. So multiply
-the equation by a **test function** `v`, integrate over the domain, and integrate by parts to
-move one derivative onto `v`:
+the equation by a **test function** $\mathbf{v}$, integrate over the domain, and integrate by parts to
+move one derivative onto $\mathbf{v}$:
 
-```
-integral( rho * d2u/dt2 . v )  +  integral( sigma(u) : epsilon(v) )  =  boundary terms
-```
+$$\int_{\Omega} \rho \ddot{\mathbf{u}} \cdot \mathbf{v} \, \mathrm{d}\Omega + \int_{\Omega} \boldsymbol{\sigma}(\mathbf{u}) : \boldsymbol{\varepsilon}(\mathbf{v}) \, \mathrm{d}\Omega = \text{boundary terms}$$
 
 Now only **first** derivatives appear anywhere. That trade is the whole reason the method works.
 It also has a quiet bonus: **traction continuity across the water/steel interface, and the
@@ -178,29 +214,25 @@ because the cells share nodes.
 
 Discretising in space gives a matrix system:
 
-```
-M * d2u/dt2 + K * u = 0
-```
+$$\mathbf{M} \ddot{\mathbf{u}} + \mathbf{K} \mathbf{u} = \mathbf{0}$$
 
-`M` is the mass matrix, `K` the stiffness matrix.
+$\mathbf{M}$ is the mass matrix, $\mathbf{K}$ the stiffness matrix.
 
 ### Explicit time stepping and mass lumping
 
 Central differences in time:
 
-```
-u^(n+1) = 2*u^n - u^(n-1) - dt^2 * inv(M) * K * u^n
-```
+$$\mathbf{u}^{n+1} = 2\mathbf{u}^{n} - \mathbf{u}^{n-1} - \Delta t^{2} \mathbf{M}^{-1} \mathbf{K} \mathbf{u}^{n}$$
 
-**Mass lumping** makes `M` diagonal, so `inv(M)` is elementwise division - no linear solve per
+**Mass lumping** makes $\mathbf{M}$ diagonal, so $\mathbf{M}^{-1}$ is elementwise division - no linear solve per
 step, just one sparse matrix-vector multiply. Placing the polynomial nodes at
 **Gauss-Lobatto-Legendre (GLL)** points makes the lumped mass exactly diagonal *and* positive,
 which is what keeps a high-order method cheap. We take 163,680 such steps, about 2.4 hours.
 
 Two rules follow from explicit stepping:
 
-- **CFL condition.** `dt` must be small enough that a wave cannot cross a cell in one step,
-  roughly `dt <~ h / (c * p^2)`. Violate it and the solution explodes. One global `dt` is set by
+- **CFL condition.** $\Delta t$ must be small enough that a wave cannot cross a cell in one step,
+  roughly $\Delta t \lesssim h / (c\, p^{2})$. Violate it and the solution explodes. One global $\Delta t$ is set by
   the **smallest cell over the fastest wave speed** - which is why refining one small region is
   expensive everywhere, and why the crack tip is deliberately *not* over-refined.
 - **Dispersion.** See below.
@@ -218,7 +250,7 @@ error becomes a depth error directly.
 
 **Raising polynomial order crushes dispersion very fast** - much faster than refining the mesh.
 Measured on one mesh: timing error **2.19% at degree 1, 0.011% at degree 2, 0.001% at degree 4.**
-The cost is that the stable `dt` shrinks like `h/(c*p^2)`, so higher order means more steps, each
+The cost is that the stable $\Delta t$ shrinks like $h/(c p^{2})$, so higher order means more steps, each
 individually cheap.
 
 **Order beats refinement for timing.** That is why this project is built on spectral elements.
@@ -252,7 +284,7 @@ artificial edges and come back in as fake echoes.
 - **k-Wave uses a PML** (perfectly matched layer): a surrounding region whose equations are
   modified so waves enter and decay without reflecting. Very effective.
 - **We use a dashpot absorbing boundary condition**: a traction proportional to velocity,
-  `traction ~ -rho * c * u_dot`, applied on the array plane and side walls. It is **first-order** -
+  $\text{traction} \approx -\rho c \dot{\mathbf{u}}$, applied on the array plane and side walls. It is **first-order** -
   it absorbs normal incidence well and leaks somewhat at oblique incidence.
 
 This matters more than it sounds. A reflecting transducer plane once bounced the front-wall echo
@@ -351,7 +383,7 @@ why comparison panels are normalised to their own maximum, never to a shared one
 | **Dispersion** | discretisation error making wave speed frequency-dependent; shifts arrival times |
 | **ppw / nodes per wavelength** | resolution measure; must be met at the pulse's top frequency, not its centre |
 | **PML** | perfectly matched layer, a high-quality absorbing boundary (k-Wave uses one) |
-| **Dashpot ABC** | first-order absorbing boundary, `traction ~ -rho*c*u_dot` (we use this) |
+| **Dashpot ABC** | first-order absorbing boundary, $\text{traction} \approx -\rho c \dot{\mathbf{u}}$ (we use this) |
 | **Traction-free** | boundary with nothing pushing back; the correct condition for steel against air |
 | **Weak form** | the integrated-by-parts equation FEM actually solves, needing only first derivatives |
 | **Mass lumping** | making the mass matrix diagonal so explicit stepping needs no linear solve |
