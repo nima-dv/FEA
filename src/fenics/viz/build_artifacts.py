@@ -68,6 +68,12 @@ def uri(rel: str) -> str:
     return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
 
 
+# STANDING RULES for this asset set, so a later edit does not quietly drop them:
+#   1. EVERY page carries the wavefield ANIMATION. A moving picture of the beam converting at
+#      the inner wall and skipping to the crack is the single most convincing asset we have,
+#      and it belongs in the decision brief as much as in the technical dossier. Use the
+#      web-sized render (wavefield_web.gif) so the pages stay openable.
+#   2. EVERY annotated comparison ships with its un-annotated twin - see the _clean keys below.
 IMG = {
     "gif": "viz/wavefield_web.gif",
     "wave": "viz/wavefield_snap_p20deg_t27p0us.png",
@@ -75,6 +81,12 @@ IMG = {
     "bw": "viz/bandwidth_convergence.png",
     "p20": "compare/compare_p20deg.png",
     "m20": "compare/compare_m20deg.png",
+    # EVERY annotated comparison must ship with its un-annotated twin. Requested by the
+    # research team: the wall arcs and the lime true-notch marker tell the reader where to
+    # look, so nobody can judge unaided detectability with them on. Generate with
+    # `repro/compare_images.py ... --no-overlay`. Keep this pairing for any figure added later.
+    "p20_clean": "compare/compare_p20deg_nooverlay.png",
+    "m20_clean": "compare/compare_m20deg_nooverlay.png",
     "base": "compare/baseline_subtract_20deg.png",
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
@@ -242,7 +254,7 @@ def main() -> None:
         "Should we keep going? Crack simulation decision brief",
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
-        _brief.body({k: img[k] for k in ("p20", "m20", "base", "mesh", "bw")}, C5)))
+        _brief.body({k: img[k] for k in ("gif", "p20", "p20_clean", "m20", "m20_clean", "base", "mesh", "bw")}, C5)))
     if MISSING:
         print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
         for m in MISSING:

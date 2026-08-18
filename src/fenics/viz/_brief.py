@@ -35,6 +35,16 @@ def body(img: dict, c5) -> str:
   orders of magnitude of compute beyond what has been demonstrated.</p>
 </div>
 
+<figure>
+  <img src="{img['gif']}" alt="Animated ultrasound wavefield converting to shear and hitting the crack">
+  <figcaption><b>The simulation, running.</b> The pulse leaves the array in water
+  (compression), converts to a <span class="n">45&deg;</span> shear wave at the inner wall,
+  skips off the outer wall and scatters at the crack. That mode-converted shear path is the
+  entire basis of the inspection, and this is our solver reproducing it on the true curved
+  geometry. Degree 3 and lightly smoothed for file size &mdash; the measured results use
+  degree 4.</figcaption>
+</figure>
+
 <h2 class="col"><span class="num">01</span>Wins</h2>
 <div class="col">
 <p>Every number below comes from the research team's own imaging code, run unmodified on both
@@ -70,6 +80,13 @@ imaging code, forward simulation the only difference.</caption>
   <figcaption><b>+20&deg;: k-Wave, ours, and ours with the crack removed entirely.</b> Each panel
   is scaled to its own maximum, because the two solvers drive different source amplitudes &mdash;
   only ratios <em>within</em> an image are comparable.</figcaption>
+</figure>
+<figure>
+  <img src="{img['p20_clean']}" alt="The same +20 degree images with nothing drawn on them">
+  <figcaption><b>The same data with nothing drawn on it.</b> No wall arcs, no true-notch
+  marker &mdash; requested by the research team, and the fairer test: an overlay tells you
+  where to look, which is what you must not be told when judging whether a defect is
+  detectable unaided.</figcaption>
 </figure>
 <figure>
   <img src="{img['m20']}" alt="k-Wave versus ours at minus 20 degrees">

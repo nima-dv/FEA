@@ -255,10 +255,24 @@ clutter guard distances. <strong>We are closer to truth in 29 of 30.</strong></p
   and is not a win for either side.</figcaption>
 </figure>
 <figure>
+  <img src="{img['p20_clean']}" alt="The same +20 degree images with no annotation at all">
+  <figcaption><b>The same data, nothing drawn on it.</b> No wall arcs, no true-notch marker.
+  The annotated version above tells you where to look, which is exactly what you must not be
+  told when judging whether a defect is detectable unaided. Judge the crack from this one; use
+  the overlay only to check position. Note the bright patch near
+  <span class="n">x = 70&ndash;85</span> mm is present in <em>both</em> panels &mdash; it is an
+  aperture and edge effect of the geometry, not a solver artifact.</figcaption>
+</figure>
+<figure>
   <img src="{img['m20']}" alt="k-Wave versus FEM at minus 20 degrees">
   <figcaption><b>&minus;20&deg;.</b> The second angle, and the one that mattered most &mdash;
   section 08 explains why these numbers were written down <em>before</em> the solve
   finished.</figcaption>
+</figure>
+<figure>
+  <img src="{img['m20_clean']}" alt="The same minus 20 degree images with no annotation">
+  <figcaption><b>&minus;20&deg;, unannotated.</b> Same pairing as above: judge detectability
+  from this, position from the overlay.</figcaption>
 </figure>
 
 <div class="verdict col">
