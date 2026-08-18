@@ -52,15 +52,21 @@ def measure(img, x, z, thresh, guard, halfwidth, col_halfwidth):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--angle", type=int, default=20)
+    ap.add_argument("--tag", default="", help="read images_<angle><tag>.npz, so a "
+                                             "variant comparison can be swept too")
     args = ap.parse_args()
 
-    d = np.load(OUT / f"images_{args.angle}.npz")
+    d = np.load(OUT / f"images_{args.angle}{args.tag}.npz")
     x, z = d["x"], d["z"]
     labels = [k[:-4] for k in d.files if k.endswith("_img")]
     imgs = {l: d[f"{l}_img"] for l in labels}
     print(f"angle {args.angle} deg, grid {imgs[labels[0]].shape}, "
           f"dx {x[1]-x[0]:.4f} mm, dz {z[1]-z[0]:.4f} mm")
     print(f"datasets: {labels}\n")
+    # The tallies below count the literal label "FEM", so they only mean anything for a
+    # TWO-dataset comparison. On an N-way run the per-row winner column is still right but
+    # the tally is not, so refuse it rather than print a confident wrong number.
+    two_way = len(labels) == 2
 
     # --- 1. extent vs threshold -------------------------------------------------------
     print("NOTCH EXTENT [mm] vs threshold (true = 4.00; radial band 25.53-29.53 mm)")
@@ -72,7 +78,8 @@ def main() -> None:
         w = min(err, key=err.get)
         ext_win.append(w)
         print(f"{th:<12.2f}" + "".join(f"{vals[l]:12.2f}" for l in labels) + f"{w:>10}")
-    print(f"  -> FEM closer to truth at {ext_win.count('FEM')}/{len(ext_win)} thresholds\n")
+    print(f"  -> FEM closer to truth at {ext_win.count('FEM')}/{len(ext_win)} thresholds\n"
+          if two_way else "  -> tally omitted: N-way run, read the winner column\n")
 
     # --- 2. position vs ROI half-width -------------------------------------------------
     print("CRACK POSITION error [mm] vs crack-ROI half-width (true x = 38.25)")
@@ -84,7 +91,8 @@ def main() -> None:
         w = min(err, key=err.get)
         pos_win.append(w)
         print(f"{hw:<12.1f}" + "".join(f"{err[l]:12.3f}" for l in labels) + f"{w:>10}")
-    print(f"  -> FEM closer at {pos_win.count('FEM')}/{len(pos_win)} ROI widths\n")
+    print(f"  -> FEM closer at {pos_win.count('FEM')}/{len(pos_win)} ROI widths\n"
+          if two_way else "  -> tally omitted: N-way run, read the winner column\n")
 
     # --- 3. CNR vs guard distance ------------------------------------------------------
     print("CRACK/CLUTTER RMS [dB] vs guard distance around the notch")
@@ -95,15 +103,20 @@ def main() -> None:
         w = max(vals, key=vals.get)
         cnr_win.append(w)
         print(f"{g:<12.1f}" + "".join(f"{vals[l]:12.1f}" for l in labels) + f"{w:>10}")
-    print(f"  -> k-Wave higher at {cnr_win.count('k-Wave')}/{len(cnr_win)} guard distances\n")
+    print(f"  -> k-Wave higher at {cnr_win.count('k-Wave')}/{len(cnr_win)} guard distances\n"
+          if two_way else "  -> tally omitted: N-way run, read the winner column\n")
 
     # --- verdict -----------------------------------------------------------------------
     n = len(ext_win) + len(pos_win)
     fem = ext_win.count("FEM") + pos_win.count("FEM")
     print("=" * 72)
-    print(f"GEOMETRY (position + extent): FEM better in {fem}/{n} parameter choices")
-    print(f"CONTRAST (CNR):               k-Wave better in {cnr_win.count('k-Wave')}/"
-          f"{len(cnr_win)} parameter choices")
+    if two_way:
+        print(f"GEOMETRY (position + extent): FEM better in {fem}/{n} parameter choices")
+        print(f"CONTRAST (CNR):               k-Wave better in {cnr_win.count('k-Wave')}/"
+              f"{len(cnr_win)} parameter choices")
+    else:
+        print(f"N-WAY RUN ({len(labels)} datasets): no tally. These counts compare exactly two")
+        print("datasets; read the per-row winner column above instead.")
     print("=" * 72)
     print("A claim that flips with the threshold is not a result. Both orderings must be\n"
           "unanimous, or near it, before either is quoted.")
