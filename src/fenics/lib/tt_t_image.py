@@ -36,6 +36,9 @@ FROZEN = dict(
     c_f=1500.0, c_P=5700.0, c_S=3100.0,
     r_id=0.193675, r_od=0.203200,
     x_c=0.03825, z_c=-0.173675,          # pipe centre; r_id + z_c = 20 mm standoff
+    # Notch ground truth. Lives here so metrics and figure captions read it rather than
+    # assuming it - a different notch (or a different angle) then needs no code edits.
+    notch_x=0.03825, notch_depth=0.004,
 )
 
 
@@ -54,6 +57,14 @@ def params_from_kwave(d) -> dict:
         # the aperture midpoint
         x_c=float(ppos[1] - tref[1]) + 0.5 * (x_el[0] + x_el[-1]),
         z_c=float(ppos[0] - tref[0]),
+        # Notch truth read from THEIR run rather than assumed, so a different crack height or
+        # offset in a future case is picked up automatically. crack_offset is measured from
+        # the pipe axis, which is x_c.
+        notch_x=(float(ppos[1] - tref[1]) + 0.5 * (x_el[0] + x_el[-1])
+                 + float(np.asarray(d["crack_offset"]).ravel()[0])
+                 if "crack_offset" in d else FROZEN["notch_x"]),
+        notch_depth=(float(np.asarray(d["crack_height"]).ravel()[0])
+                     if "crack_height" in d else FROZEN["notch_depth"]),
     )
 
 
@@ -124,7 +135,7 @@ def tt_t_image(bf, channel_data: np.ndarray, dt: float, angle_deg: float,
 
 
 def image_metrics(img, x_ax_mm, z_ax_mm, params: dict | None = None,
-                  notch_x_mm: float = 38.25, notch_depth_mm: float = 4.0,
+                  notch_x_mm: float | None = None, notch_depth_mm: float | None = None,
                   guard_mm: float = 6.0):
     """Crack response vs defect-free-wall clutter - the quantitative comparison.
 
@@ -136,6 +147,12 @@ def image_metrics(img, x_ax_mm, z_ax_mm, params: dict | None = None,
     rectangular band would leak fluid and outside-the-OD pixels into the statistics).
     """
     p = dict(FROZEN if params is None else params)
+    # Notch truth comes from the scenario unless the caller overrides it (the robustness
+    # sweeps do). Falling back to FROZEN keeps a params dict that predates these keys working.
+    if notch_x_mm is None:
+        notch_x_mm = p.get("notch_x", FROZEN["notch_x"]) * 1e3
+    if notch_depth_mm is None:
+        notch_depth_mm = p.get("notch_depth", FROZEN["notch_depth"]) * 1e3
     X, Z = np.meshgrid(x_ax_mm, z_ax_mm, indexing="ij")
     R = np.hypot(X - p["x_c"] * 1e3, Z - p["z_c"] * 1e3)
     r_id_mm, r_od_mm = p["r_id"] * 1e3, p["r_od"] * 1e3

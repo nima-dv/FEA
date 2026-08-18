@@ -49,6 +49,10 @@ def main() -> None:
     ap.add_argument("--ours", default=None, help="our FEM channel_data .npz")
     ap.add_argument("--theirs", default=None, help="their extracted k-Wave .npz")
     ap.add_argument("--ours-healthy", default=None, help="our healthy-wall FEM .npz")
+    ap.add_argument("--fem", action="append", default=[], metavar="LABEL=PATH",
+                    help="an extra FEM dataset as LABEL=PATH. Repeat for an N-way comparison "
+                         "(e.g. baseline vs a boundary-condition variant). The label appears "
+                         "on the panel and as the table column heading.")
     ap.add_argument("--no-overlay", action="store_true",
                     help="draw the raw image only - no wall arcs, no true-notch marker")
     ap.add_argument("--tag", default="", help="suffix for the output figure, so a variant "
@@ -80,15 +84,27 @@ def main() -> None:
         run("FEM", args.ours, dict(FROZEN))
     if args.ours_healthy:
         run("FEM healthy", args.ours_healthy, dict(FROZEN))
+    for spec in args.fem:
+        if "=" not in spec:
+            raise SystemExit(f"--fem wants LABEL=PATH, got {spec!r}")
+        lab, pth = spec.split("=", 1)
+        if lab in results:
+            raise SystemExit(f"--fem label {lab!r} is already used")
+        run(lab, pth, dict(FROZEN))
 
     if not results:
         raise SystemExit("nothing to do - pass --ours and/or --theirs")
 
     # --- comparison table ---------------------------------------------------------------
+    # Headings quote the scenario, not literals, so they cannot go stale if the notch,
+    # the wall or the steering angle changes.
+    t_x = FROZEN["notch_x"] * 1e3
+    t_d = FROZEN["notch_depth"] * 1e3
+    t_od = (FROZEN["r_od"] + FROZEN["z_c"]) * 1e3
     keys = [("crack_peak", "crack peak (arb)", "{:.4g}"),
-            ("crack_x_mm", "crack x [mm]  (true 38.25)", "{:.2f}"),
-            ("crack_z_mm", "crack z [mm]  (OD 29.53)", "{:.2f}"),
-            ("notch_extent_mm", "notch extent [mm]  (true 4.0)", "{:.2f}"),
+            ("crack_x_mm", f"crack x [mm]  (true {t_x:.2f})", "{:.2f}"),
+            ("crack_z_mm", f"crack z [mm]  (OD {t_od:.2f})", "{:.2f}"),
+            ("notch_extent_mm", f"notch extent [mm]  (true {t_d:.1f})", "{:.2f}"),
             ("clutter_rms", "wall clutter RMS", "{:.4g}"),
             ("clutter_p95", "wall clutter p95", "{:.4g}"),
             ("clutter_max", "wall clutter worst", "{:.4g}"),
@@ -133,7 +149,8 @@ def main() -> None:
             for rr, c in ((FROZEN["r_id"] * 1e3, "cyan"), (FROZEN["r_od"] * 1e3, "cyan")):
                 ax.plot(rr * np.sin(th) + FROZEN["x_c"] * 1e3,
                         rr * np.cos(th) + FROZEN["z_c"] * 1e3, c=c, lw=0.8)
-            ax.plot([38.25, 38.25], [25.525, 29.525], color="lime", lw=1.6)
+            z_od = (FROZEN["r_od"] + FROZEN["z_c"]) * 1e3
+            ax.plot([t_x, t_x], [z_od - t_d, z_od], color="lime", lw=1.6)
         ax.set_xlim(r["x"][0], r["x"][-1]); ax.set_ylim(0, 40)
         ax.set_title(f"{l}   (crack/clutter {r['m']['cnr_rms_db']:.1f} dB RMS)",
                      fontsize=10)
