@@ -212,13 +212,10 @@ resolution deviates by roughly <span class="n">140</span> &micro;m.</p>
   <span class="n">0.07</span> dB.</strong> Both far too small to account for the measured
   difference, so neither is offered as an explanation anywhere in this brief. Quantifying a
   candidate and ruling it out is what keeps the remaining claims defensible.</p>
+  <p class="fine">Both are <em>prior</em> measurements, recorded in the branch README
+  &sect;4.10 and &sect;4.12. Their figures are not reproduced here &mdash; this brief is scoped
+  to one scenario, and each experiment costs a pair of extra multi-hour solves.</p>
 </div>
-<figure>
-  <img src="{img['c4']}" alt="Conforming versus staircased wall - visually identical">
-  <figcaption><b>Staircasing the curved wall, measured.</b> Defect-free wall, one variable
-  changed, shared colour scale. The two panels are near-identical &mdash; which is the
-  result.</figcaption>
-</figure>
 
 <h2 class="col"><span class="num">03</span>Limiting factors</h2>
 <div class="col">

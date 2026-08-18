@@ -76,7 +76,6 @@ IMG = {
     "p20": "compare/compare_p20deg.png",
     "m20": "compare/compare_m20deg.png",
     "base": "compare/baseline_subtract_20deg.png",
-    "c4": "compare/c4_staircase_vs_conforming.png",
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
     # through both critical angles, rather than one normal-incidence coefficient.
@@ -159,6 +158,7 @@ hr{border:0; border-top:1px solid var(--rule-soft); margin:40px 0}
   font-family:var(--mono); font-size:11px; letter-spacing:.13em; text-transform:uppercase;
   color:var(--ink-faint); display:block; margin-bottom:8px;
 }
+.fine{ font-size:13.5px; color:var(--ink-faint); }
 
 /* tables */
 .tw{overflow-x:auto; margin:18px 0 26px; border:1px solid var(--rule); background:var(--surface)}
@@ -242,7 +242,7 @@ def main() -> None:
         "Should we keep going? Crack simulation decision brief",
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
-        _brief.body({k: img[k] for k in ("p20", "m20", "base", "mesh", "c4", "bw")}, C5)))
+        _brief.body({k: img[k] for k in ("p20", "m20", "base", "mesh", "bw")}, C5)))
     if MISSING:
         print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
         for m in MISSING:

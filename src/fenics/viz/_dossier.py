@@ -275,6 +275,43 @@ clutter guard distances. <strong>We are closer to truth in 29 of 30.</strong></p
   calibrate away.</p>
 </div>
 
+<div class="col">
+<h3>&ldquo;Your images have artifacts&rdquo; &mdash; the objection, answered</h3>
+<p>The research engineer who wrote the k-Wave simulation reviewed these images and said they had
+<em>&ldquo;some artifacts&rdquo;</em>. This is the first thing any reviewer says, so it is worth
+answering precisely rather than defending.</p>
+<p>An <strong>artifact</strong> is brightness where nothing real exists. The beamformer assumes
+every echo took one specific path; energy arriving by another route, or invented numerically,
+still lands at whatever depth its arrival time implies. The standard is unforgiving:
+<strong>a defect-free steel wall must image black.</strong></p>
+<p><strong>Neither image is black &mdash; and ours is the cleaner of the two.</strong> Absolute
+levels are not comparable (they drive a 2e-6 velocity source, we apply unit traction), so only
+within-image ratios mean anything. Crack against clutter RMS: <span class="fem n">24.0</span> dB
+for us against <span class="kw n">22.8</span> dB for them. Crack against the single worst clutter
+pixel: <span class="fem n">12.2</span> against <span class="kw n">10.3</span> dB. Unanimous over
+all five guard distances tested.</p>
+<p><strong>Ours nonetheless looks dirtier, and that part is presentation.</strong> These panels
+use a <span class="n">&minus;40</span> dB log scale; their published images are linear min-max.
+Our clutter 95th percentile is <span class="n">0.0258</span> against a crack peak of
+<span class="n">0.182</span> &mdash; about <span class="n">14%</span> of peak. Linear, that is a
+barely visible grey. At <span class="n">&minus;40</span> dB log it is
+<span class="n">&minus;17</span> dB, the bright middle of the colour map. Same data. Their scale
+suppresses exactly what ours puts on display.</p>
+<p>Three candidates may genuinely be ours, and we do not explain them away. Our absorbing
+boundary is a <strong>first-order dashpot, not a PML</strong>, so it reflects some energy at
+oblique incidence; whole-record late energy is <span class="n">1.06</span> and
+<span class="n">0.93</span> of theirs, comparable but an average can hide something localised.
+Our mesh is unstructured and graded, so numerical dispersion varies in space. And our notch is a
+true void with sharp corners, which diffracts strongly &mdash; more correct than their
+<span class="n">500</span> m/s fill, but it does add structure near the tip.
+<strong>Upgrading the boundary to a PML is the concrete fixable lever</strong>, and it is costed
+in the brief.</p>
+<p>One artifact is definitely not ours: the bright patch at
+<span class="n">x &asymp; 70&ndash;85</span> mm appears in <em>both</em> panels when their own
+channel data goes through this same beamformer. That is an aperture and edge effect of the
+geometry.</p>
+</div>
+
 <h2 class="col"><span class="num">07</span>Proving the bright spot is the crack</h2>
 <div class="col">
 <p>A bright patch in the right place is not proof. So we simulated the identical wall with
@@ -342,72 +379,34 @@ dB and <span class="n">3.85</span> mm</strong>, both inside the range. That is t
 between an explanation and a story.</p>
 </div>
 
-<h2 class="col"><span class="num">09</span>Two experiments to explain the win &mdash; the first failed</h2>
+<h2 class="col"><span class="num">09</span>Two candidate explanations, both eliminated</h2>
 <div class="col">
-<p>If our geometry is so much more faithful, that should be measurable. So we tested it
-directly, inside our own solver, changing exactly one thing.</p>
-<h3>C4: staircase the interface, keep everything else</h3>
-<p>A defect-free wall, run twice: once with the inner surface as an exact arc, once as a
-<span class="n">50</span> &micro;m pixel staircase &mdash; k-Wave's own grid spacing. Same
-solver, same cell sizes, same source, same imaging. A defect-free wall must image black, so
-everything in the picture is numerical.</p>
+<p>If our geometry is so much more faithful, that should be measurable. We tested it directly,
+inside our own solver, changing exactly one thing at a time.</p>
+<p><strong>C4 &mdash; staircase the inner wall</strong> at k-Wave's own <span class="n">50</span>
+&micro;m spacing, on a defect-free pipe where every bright pixel is therefore numerical. It moved
+the clutter floor by <strong><span class="n">0.61</span> dB</strong> RMS &mdash; consistent in
+direction across all three measures, and far too small to explain a <span class="n">1.2</span> dB
+advantage. This project had asserted since its design phase that our advantage came from
+conforming geometry. That claim is <strong>withdrawn</strong>.</p>
+<p><strong>C5 &mdash; fill the crack</strong> with the fictitious material k-Wave uses in place of
+a void (<span class="n">500</span> m/s compression, zero shear, read from their script). Effect on
+the crack response: <strong><span class="n">0.07</span> dB</strong>, with no measurable change in
+sizing or position. Predicted in advance to be near-null, because a filled crack still reflects
+<span class="n">98.9%</span> of what a true free surface would, so almost no energy enters it to
+be got wrong.</p>
 </div>
-<div class="tw col">
-<table>
-<caption>C4: staircased versus conforming inner wall, healthy pipe, +20&deg;</caption>
-<thead><tr><th>Wall clutter</th><th class="num">Conforming</th><th class="num">Staircased</th>
-  <th class="num">Difference</th></tr></thead>
-<tbody>
-<tr><td class="row-label">RMS</td><td class="num">0.02967</td><td class="num">0.03183</td>
-  <td class="num">+0.61 dB</td></tr>
-<tr><td class="row-label">95th percentile</td><td class="num">0.05708</td>
-  <td class="num">0.06327</td><td class="num">+0.89 dB</td></tr>
-<tr><td class="row-label">Worst pixel</td><td class="num">0.1083</td><td class="num">0.1228</td>
-  <td class="num">+1.09 dB</td></tr>
-<tr><td class="row-label">Steps for the same 60 &micro;s</td><td class="num">51,748</td>
-  <td class="num">364,157</td><td class="num">7.0&times;</td></tr>
-</tbody>
-</table>
-</div>
-<figure>
-  <img src="{img['c4']}" alt="Conforming versus staircased inner wall - indistinguishable">
-  <figcaption><b>The experiment that failed, on a shared colour scale.</b> These two panels are
-  supposed to look different. They do not. Staircasing the curved interface at k-Wave's own grid
-  spacing moves the numerical clutter floor by at most about <span class="n">1</span> dB
-  &mdash; consistent in direction across all three measures, and far too small to explain a
-  <span class="n">1.2</span> dB advantage.</figcaption>
-</figure>
 <div class="verdict dead col">
-  <span class="kicker">Measured, bounded, and withdrawn from the claims</span>
-  <p>This project had asserted since its design phase that our advantage came from conforming
-  geometry. Having now measured it at <strong>0.61 dB</strong>, that claim is
-  <strong>withdrawn</strong> and appears nowhere in our results. Quantifying a candidate and
-  ruling it out is what keeps the surviving claims defensible.</p>
-  <p>One genuine finding survives, valid inside FEM only: staircasing forced
-  <span class="n">7&times;</span> more time steps for the same simulated time <em>and</em> was
-  slightly worse. That argues for conforming meshes on cost grounds. It is not a comparison
-  with k-Wave, whose uniform grid has a different stability limit.</p>
+  <span class="kicker">Prior findings &mdash; figures not regenerated at this scope</span>
+  <p>Both results are recorded in full in the branch README (&sect;4.10, &sect;4.12). Their
+  figures and tables are <strong>not</strong> reproduced on this page: this document is scoped to
+  a single scenario, and each experiment costs a pair of additional multi-hour solves. Treat them
+  as prior measurements, not as evidence shown here.</p>
+  <p><strong>So we measure better and cannot yet attribute it.</strong> That is a legitimate
+  scientific position, and a stronger one than picking a story. What remains untested sits inside
+  k-Wave where we cannot instrument it: its single precision, its absorbing layer, and its
+  sub-pixel interface blending.</p>
 </div>
-<div class="col">
-<h3>C5: the crack void &mdash; the remaining candidate</h3>
-<p>k-Wave cannot leave a hole in its grid, so it fills the crack with a fictitious material:
-compression speed <span class="n">500</span> m/s, shear speed <span class="n">0</span>, density
-<span class="n">500</span> &mdash; read from their script, not guessed. At 4 MHz that material
-has a <span class="n">0.125</span> mm wavelength, which their grid resolves with only
-<span class="n">2.5</span> points. That is a far cruder approximation than staircasing a smooth
-arc, and C4 could not see it, because C4 had no crack.</p>
-<p>So we built the same conforming notch twice: once as a traction-free void, once filled with
-their material at a deliberately matched <span class="n">2.08</span> nodes per wavelength.
-Identical time step, identical step count, 88 extra cells. One variable.</p>
-<p><strong>Prediction, on record before the result:</strong> a small effect &mdash; under
-<span class="n">1</span> dB and under <span class="n">0.3</span> mm of sizing change. A filled
-crack still reflects <span class="n">98.9%</span> of the amplitude a true free surface would,
-so barely any energy enters it to be got wrong. If that holds, then neither of k-Wave's
-geometry approximations explains our advantage, and the honest position is
-<em>"we measure better and cannot yet attribute it"</em> &mdash; which is a legitimate
-scientific state, and better than picking a story.</p>
-</div>
-{c5_block}
 
 <h2 class="col"><span class="num">10</span>What we cannot claim</h2>
 <div class="ledger col">
