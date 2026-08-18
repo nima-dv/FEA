@@ -42,6 +42,10 @@ crack-detection sim. Pure Python in Docker.
 - **Why - asks, constraints, frozen scenario, results, plan:**
   `F:\code\readme\rnd-nima-FEA-README.md`. Read it before changing anything numerical;
   several settings look wrong and are deliberate (`--degree 4`, `H_NOTCH` 0.30 mm).
+- **Theory - equations, the two methods, how the comparison is made fair:** `lessons.md`.
+  Concepts only; keep measured numbers out of it so it cannot drift from the README.
+  Update it whenever the understanding changes.
+- **Pitch talking points, slide by slide:** `PITCH.md`.
 
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
 Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current
