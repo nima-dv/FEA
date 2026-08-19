@@ -190,7 +190,98 @@ the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</spa
   wall.</figcaption>
 </figure>
 
-<h2 class="col"><span class="num">05</span>Wins</h2>
+<h2 class="col"><span class="num">05</span>Reducing the artifacts</h2>
+<div class="col">
+<p>An <b>artifact</b> is brightness where nothing real exists. The beamformer assumes every echo
+took one specific path, so energy arriving any other way &mdash; or invented numerically &mdash;
+still gets placed at whatever depth its arrival time implies. The standard is unforgiving: a
+defect-free wall must image black. <b>Neither model's does</b>, which is what the defect-free panel
+above shows.</p>
+<p>We ran a deliberate programme against it. Three attempts, one kept.</p>
+</div>
+<div class="tw col">
+<table>
+<caption>Artifact-reduction attempts, all measured</caption>
+<thead><tr><th>Attempt</th><th>What it changed</th><th>Outcome</th></tr></thead>
+<tbody>
+<tr><td class="row-label">Shear-matched absorbing boundary</td>
+  <td>The domain edge was absorbing compression and shear at the same rate, over-damping the shear
+  wave by about <span class="n">30%</span> of its amplitude. Corrected to the true shear
+  impedance.</td>
+  <td>No artifact reduction &mdash; the edge artefact moved <span class="n">0.2</span> dB. It did
+  <b>eliminate the boundary as the cause</b>. Not adopted.</td></tr>
+<tr><td class="row-label">Graded sponge layer</td>
+  <td>Absorption ramped smoothly across the <span class="n">8</span> mm unused margins, with no
+  impedance step for a wave to reflect from. Measured at about <span class="n">55</span> dB
+  round-trip attenuation.</td>
+  <td>No measurable effect. Confirmed the boundary result independently. Not adopted.</td></tr>
+<tr><td class="row-label"><b>Imaging-operator anti-aliasing</b></td>
+  <td>Suppresses aliasing inside the migration operator, the textbook cause of streak clutter at
+  steep image angles. Applied to <b>both</b> datasets, so it remains a forward-solver
+  comparison.</td>
+  <td class="fem"><b>Kept.</b> Contrast <span class="n">+2.5</span> dB and the residual edge
+  artefact cut by <span class="n">72%</span>.</td></tr>
+</tbody>
+</table>
+</div>
+<figure>
+  <img src="{img['p20_legacy_clean']}" alt="The same two images before the imaging-operator anti-aliasing">
+  <figcaption><b>Before.</b> Identical simulation data to the unannotated pair in section 04, imaged
+  without operator anti-aliasing. Compare the wall away from the crack: the streaking toward the
+  left and right edges is what the correction removes. k-Wave left, ours right.</figcaption>
+</figure>
+<div class="tw col">
+<table>
+<caption><b>What the kept correction bought</b>, +20&deg;</caption>
+<thead><tr><th>Measure</th><th class="num">Before</th><th class="num">After</th></tr></thead>
+<tbody>
+<tr><td class="row-label">Crack vs clutter &mdash; ours</td>
+  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td></tr>
+<tr><td class="row-label">Crack vs clutter &mdash; k-Wave</td>
+  <td class="num">22.8 dB</td><td class="num">24.0 dB</td></tr>
+<tr><td class="row-label"><b>Our margin</b></td>
+  <td class="num">+1.2 dB</td><td class="num fem"><b>+2.5 dB</b></td></tr>
+<tr><td class="row-label">Residual edge artefact</td>
+  <td class="num">+1.76 dB</td><td class="num fem">+0.50 dB</td></tr>
+</tbody>
+</table>
+</div>
+<div class="col">
+<p>Because it was applied to both datasets it improved both &mdash; and it improved ours more, so
+the margin roughly doubled. Crack sizing and position did not move at all, which is the point: this
+removed clutter without touching the measurement.</p>
+
+<h3>The two that did not work, and why we ran them anyway</h3>
+<p>The boundary work was not wasted. It produced a physically more correct absorber and it
+<em>eliminated a hypothesis</em> &mdash; two independent treatments moved the artefact by
+<span class="n">0.2</span> dB, which is what told us the domain edge was not the source and stopped
+us building a far more expensive absorbing layer to fix something that was never the cause.</p>
+<p>It also carried a cost worth stating. On a defect-free wall the corrected boundary slightly
+<em>increased</em> numerical clutter &mdash; <span class="n">+0.5</span> dB across the wall and
+<span class="n">+2.3</span> dB in the crack band &mdash; because the original over-damping had been
+suppressing numerical noise along with real signal. It improved sizing at
+<span class="n">+20&deg;</span> but not at <span class="n">&minus;20&deg;</span>. More correct
+physics, no consistent benefit: <b>not adopted.</b></p>
+</div>
+<figure>
+  <img src="{img['healthy_bnd_clean']}" alt="Defect-free wall imaged under the corrected boundary treatment">
+  <figcaption><b>The negative result, shown.</b> A defect-free wall under the corrected absorbing
+  boundary. Everything visible here is numerical &mdash; there is no defect anywhere in this
+  simulation. This is the measurement that ruled the boundary out as the artifact source, and it is
+  why the physically better absorber is not in the production configuration.</figcaption>
+</figure>
+<div class="col">
+<h3>What is left</h3>
+<p>A residual edge artefact, after <b>five</b> candidate causes were tested and eliminated. Part of
+it is not ours to fix: the array pitch is <span class="n">0.30</span> mm and the no-grating-lobe
+limit at <span class="n">20&deg;</span> steering is <span class="n">0.279</span> mm &mdash; by the
+research team's own criterion, in their own script. A full-amplitude alias of the main beam
+therefore exists by array geometry alone, in <em>both</em> simulations, and no solver change removes
+it. Lower steering angle, lower frequency or finer element pitch are the only levers, and all three
+are hardware decisions.</p>
+</div>
+
+<h2 class="col"><span class="num">06</span>Wins</h2>
 <div class="ledger col">
   <div class="claim"><span class="tag yes">Win</span><div>
     <p><b>Sizing &mdash; about half the error.</b></p>
@@ -227,7 +318,7 @@ the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</spa
     workstation. Every figure here regenerates from committed code.</p></div></div>
 </div>
 
-<h2 class="col"><span class="num">06</span>What we are not claiming</h2>
+<h2 class="col"><span class="num">07</span>What we are not claiming</h2>
 <div class="ledger col">
   <div class="claim"><span class="tag part">Bounded</span><div>
     <p>Sizing is a <span class="n">+20&deg;</span> win, not an every-angle win.</p>
@@ -259,7 +350,7 @@ the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</spa
     cores.</p></div></div>
 </div>
 
-<h2 class="col"><span class="num">07</span>Cost and next steps</h2>
+<h2 class="col"><span class="num">08</span>Cost and next steps</h2>
 <div class="tw col">
 <table>
 <caption>Measured, not estimated</caption>

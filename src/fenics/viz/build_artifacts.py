@@ -88,6 +88,12 @@ IMG = {
     "p20_clean": "compare/compare_p20deg_nooverlay.png",
     "m20_clean": "compare/compare_m20deg_nooverlay.png",
     "base": "compare/baseline_subtract_20deg.png",
+    # Artifact-reduction programme. "p20_legacy_clean" is the SAME data before the imaging
+    # operator anti-aliasing was enabled - the before/after pair for section 05. The healthy
+    # one is the defect-free wall under the shear-matched + sponge boundary variant, i.e. the
+    # experiment that came back negative. Both un-annotated, per the twin rule.
+    "p20_legacy_clean": "compare/compare_p20deg_legacybf_nooverlay.png",
+    "healthy_bnd_clean": "compare/compare_p20deg_healthy_boundary_nooverlay.png",
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
     # through both critical angles, rather than one normal-incidence coefficient.
@@ -261,7 +267,8 @@ def main() -> None:
         "Should we keep going? Crack simulation decision brief",
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
-        _brief.body({k: img[k] for k in ("gif", "p20", "p20_clean", "m20", "m20_clean", "base", "mesh", "bw")}, C5)))
+        _brief.body({k: img[k] for k in ("gif", "p20", "p20_clean", "m20", "m20_clean", "base", "mesh", "bw",
+                        "p20_legacy_clean", "healthy_bnd_clean")}, C5)))
     if MISSING:
         print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
         for m in MISSING:
