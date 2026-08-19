@@ -741,6 +741,18 @@ be got wrong.</p>
 <p>Relevant because any 3-D discussion depends on it, and because two of these numbers were
 estimated first and measured later &mdash; the measurements are what we would plan against.</p>
 <ul>
+<li><strong>The time loop runs 23&times; faster on a GPU, measured.</strong> The hot loop
+touches neither PETSc nor DOLFINx - assembly happens once, then the loop is
+<code>scipy.sparse</code> only - so this needed a <code>cupy</code>/cuSPARSE swap of two lines
+rather than a CUDA-enabled FEM stack. On the production matrix
+(<span class="n">1.47</span> M unknowns, <span class="n">105</span> M nonzeros):
+<span class="n">57.8</span> ms/step at <span class="n">23.2</span> GB/s on the CPU against
+<span class="n">2.51</span> ms/step at <span class="n">534</span> GB/s on one consumer card, so
+<span class="n">2.6</span> hours per angle becomes <span class="n">6.9</span> minutes. It is a
+pure bandwidth ratio, which is also why double precision costs little here. <b>Not yet
+adopted</b> - CPU and GPU agree to <span class="n">2.6e-16</span>, which is round-off from a
+different reduction order and <em>not</em> an accuracy gate; timing is the measurement, so
+adoption needs validation against known arrival times.</li>
 <li><strong>Parallelism gives 1.71&times;, not the 4&ndash;8&times; a core count suggests.</strong>
 DOLFINx is MPI-parallel and partitions almost perfectly (imbalance
 <span class="n">&le;1.02&times;</span>), but the operation is <em>memory-bandwidth</em> bound:

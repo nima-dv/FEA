@@ -1,0 +1,33 @@
+# GPU layer over the CPU research image, for the CuPy time-stepping path.
+#
+# WHY THIS IS A THIN LAYER AND NOT A CUDA BASE IMAGE
+# --------------------------------------------------
+# The solver's hot loop touches neither PETSc nor DOLFINx: ili_forward.py assembles K, m,
+# S and W ONCE through DOLFINx, then time-steps with scipy.sparse only. So the GPU path
+# needs a GPU array library, not a CUDA-enabled FEM stack.
+#
+# That matters, because the "official" FEniCSx GPU route is blocked here: cuda-dolfinx
+# cannot be used with the Conda/Docker dolfinx distributions, which ship PETSc WITHOUT
+# CUDA. Verified on dvfenics:bf - PETSc.Vec().setType('cuda') fails with error code 86.
+# Rebuilding PETSc + DOLFINx with CUDA via Spack would replace the whole container; this
+# avoids that entirely.
+#
+# The cupy-cuda12x wheels pull the CUDA runtime libraries they need as pip packages
+# (nvidia-cublas-cu12, nvidia-cusparse-cu12, ...), so no CUDA toolkit is required in the
+# image. The driver is injected by the NVIDIA container runtime at run time.
+#
+# BUILD   docker build -f Dockerfile.gpu -t dvfenics:gpu .
+# RUN     add --gpus all to the usual docker run line, or use run.ps1 -Gpu
+FROM dvfenics:bf
+
+# cupy-cuda12x >= 13.4 is the first series with SM 12.0 (Blackwell) kernels; this machine
+# is an RTX 5070 at compute capability 12.0, so an older wheel would build nothing it can
+# run. Pinned as a floor, not an exact version, so security updates still apply.
+# The [ctk] extra pulls the CUDA toolkit HEADERS as pip packages. They are needed because
+# CuPy JIT-compiles its elementwise kernels with NVRTC at run time - the leapfrog update is
+# elementwise, so without headers every vector operation fails with "Failed to find CUDA
+# headers". Library calls like cuSPARSE SpMV would work without them, which makes this an
+# easy thing to miss until the second line of the time loop.
+RUN pip install --no-cache-dir "cupy-cuda12x[ctk]>=13.4"
+
+WORKDIR /work

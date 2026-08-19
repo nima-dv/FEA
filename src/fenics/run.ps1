@@ -4,6 +4,7 @@
 # Usage:
 #   ./run.ps1                                 # interactive bash shell in the container
 #   ./run.ps1 python3 toys/check_dolfinx.py   # run a command in the container
+#   ./run.ps1 -Gpu python3 tools/gpu_probe.py # same, on the CuPy/CUDA image with the GPU
 #
 # Requires Docker Desktop running. First invocation builds the image (dolfinx stable + extras).
 #
@@ -16,13 +17,23 @@
 #   ../../data               -> /data    (READ-ONLY: the research team's raw k-Wave runs.
 #       Lives outside /work because it is gitignored bulk data, ~423 MB. Feed it to
 #       tools/extract_kwave_case.py as --run /data/derrell/<run folder>.)
-param([Parameter(ValueFromRemainingArguments = $true)] $Cmd)
+param(
+    [switch] $Gpu,
+    [Parameter(ValueFromRemainingArguments = $true)] $Cmd
+)
 $ErrorActionPreference = 'Stop'
 $here  = $PSScriptRoot
 # dvfenics:bf = dvfenics:latest + the deps the research team's beamformer needs.
 # Built as a separate tag so the older working image stays available as a rollback.
 # Override with $env:DVFENICS_IMAGE if you need a different one.
-$image = if ($env:DVFENICS_IMAGE) { $env:DVFENICS_IMAGE } else { 'dvfenics:bf' }
+$image = if ($env:DVFENICS_IMAGE) { $env:DVFENICS_IMAGE }
+          elseif ($Gpu) { 'dvfenics:gpu' }
+          else { 'dvfenics:bf' }
+# -Gpu selects the CuPy layer (Dockerfile.gpu) and passes the device through. The GPU path
+# only accelerates the TIME LOOP - assembly and meshing stay on the CPU either way, because
+# the official FEniCSx GPU route needs a CUDA-enabled PETSc that the stock dolfinx image
+# does not ship.
+$gpuArgs = if ($Gpu) { @('--gpus', 'all') } else { @() }
 
 # The beamformer package inside the sparse submodule checkout (may be absent if the
 # submodule was not initialised - that is fine unless you are beamforming).
@@ -57,7 +68,7 @@ if (-not (docker images -q $image)) {
 
 if ($Cmd) {
     # Non-interactive command: no -t (avoids 'input device is not a TTY' under tooling).
-    docker run --rm @mounts -w /work $image @Cmd
+    docker run --rm @gpuArgs @mounts -w /work $image @Cmd
 } else {
-    docker run --rm -it @mounts -w /work $image bash
+    docker run --rm -it @gpuArgs @mounts -w /work $image bash
 }

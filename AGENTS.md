@@ -60,6 +60,13 @@ Five candidate causes of the edge clutter are eliminated by measurement; none is
 proposing a sixth, read section 4.16-4.18 of the branch README - a repeat of a dead hypothesis
 costs a 2.4 h solve.
 
+Two container images: `dvfenics:bf` (CPU, the default) and `dvfenics:gpu` (adds CuPy for the
+GPU time loop; build with `docker build -f Dockerfile.gpu -t dvfenics:gpu .`, run with
+`./run.ps1 -Gpu`). The GPU path accelerates only the time loop - meshing and assembly stay on
+the CPU, because the official FEniCSx GPU route needs a CUDA-enabled PETSc the stock image does
+not ship. It is measured at 23x but **not adopted**: that needs validation against known
+arrival times, not a round-off comparison.
+
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
 Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current
 state only, no changelog, no dead text.

@@ -308,6 +308,31 @@ individually cheap.
 
 **Order beats refinement for timing.** That is why this project is built on spectral elements.
 
+### Why this solver is a good fit for a GPU, and how to tell in advance
+
+Worth knowing as a general rule. One explicit step is a single sparse matrix-vector product
+plus a few elementwise vector operations. Count the arithmetic against the bytes moved and the
+answer is lopsided: roughly two floating-point operations per matrix entry, but twelve bytes
+must be fetched to get that entry. The kernel is therefore **memory-bandwidth bound**, not
+compute bound - it spends its life waiting for memory.
+
+That single fact predicts a lot:
+
+- **Adding cores barely helps.** Cores on one socket share a memory bus, so parallel speed-up
+  saturates far below the core count.
+- **Moving to a GPU helps enormously**, because a GPU's advantage over a CPU is far larger in
+  memory bandwidth than in cores, and bandwidth is the binding constraint.
+- **Double precision is nearly free here**, which is counter-intuitive on consumer hardware
+  where fp64 *arithmetic* runs at a small fraction of fp32. If you are waiting for memory, the
+  arithmetic rate is not what limits you - only the doubled byte count is.
+- **Matrix-free methods look wrong on a CPU and right on a GPU.** They recompute element
+  contributions instead of storing them, trading bandwidth for arithmetic. That is a bad trade
+  when arithmetic is scarce and a good one when it is abundant.
+
+The general lesson: before optimising, work out whether the kernel is starved of arithmetic or
+of bandwidth. It tells you which hardware and which algorithm will help, and it explains why
+two plausible-sounding speed-ups can have opposite outcomes.
+
 ### The bandwidth trap - the project's biggest single lesson
 
 The transmitted pulse is only **one cycle** long. A short pulse is wide in frequency: a 1-cycle
