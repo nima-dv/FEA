@@ -265,6 +265,37 @@ The standard rule of thumb "4 nodes per wavelength" must therefore be satisfied 
 nodes per wavelength at 7 MHz, over a water path 53 wavelengths long. The mesh then acts as a
 low-pass filter on your own pulse while it is in transit.
 
+### How that fixes the cell size
+
+The rule of thumb is the mesh design rule. Turn it around: with a target of $N$ nodes per
+wavelength and a degree-$p$ element carrying $p$ node spacings across a cell,
+
+$$h \;\approx\; \frac{p\,\lambda_{\min}}{N}, \qquad \lambda = \frac{c}{f}$$
+
+Three consequences, and the first one surprises people:
+
+- **The slowest material needs the finest cells.** $\lambda = c/f$, so water at 1500 m/s has a
+  shorter wavelength than steel at 3100 m/s. The water gap is meshed finer than the steel wall,
+  even though the crack we are hunting is in the steel.
+- **The mesh is therefore non-uniform, and graded.** Each region gets a size from its own
+  wavelength, and the transitions are ramped rather than stepped - an abrupt change in element
+  size scatters a wave much like a change in material does, and it also produces badly shaped
+  cells.
+- **Order is the cheaper knob than refinement.** Resolution goes as $p\,\lambda/h$, and
+  dispersion falls much faster with $p$ than with $h$ - while the stable step shrinks like
+  $h/(c p^{2})$, so halving $h$ doubles the number of steps.
+
+Two places where wavelength is deliberately *not* the criterion. At the **transducer face** the
+mesh must resolve individual array elements, which is a geometry requirement finer than any
+wavelength demands. At the **crack** it would be a mistake to refine: one global explicit time
+step is set by the smallest cell, so refining the scatterer slows the whole solve - and it buys
+nothing, because in FEM the crack faces are exact geometry at *any* cell size. Conformity comes
+from the boundary, not from refinement. That is the whole geometric advantage over a grid.
+
+And one exception worth knowing: **past a critical angle, size against the evanescent decay
+length rather than the wavelength.** An evanescent boundary layer can be thinner than a single
+cell, and no wavelength-based rule sees it.
+
 **Axial resolution is set by BANDWIDTH, not centre frequency.** So losing the top of the band
 smears everything: a true 4.0 mm notch imaged as 8.07 mm, a weak crack response, and no distinct
 back-wall arc. Fixing it - degree 4 on a finer mesh - is what turned a loss into a win.
