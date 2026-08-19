@@ -6,8 +6,10 @@ but they will ask "what is it, why is it better, what does it cost".
 Scope rules for this page, deliberate:
   * ONE beam angle (+20 deg) carries the results. The second angle exists and is in the
     dossier; a brief that reports both spends its length on hedging.
-  * Every annotated comparison is followed by its UN-ANNOTATED twin, so the reader can judge
-    unaided detectability. Requested by the research team.
+  * NO ANNOTATED FIGURE APPEARS ON THIS PAGE. Every image is a `--no-overlay` render: no wall
+    arcs, no marker over the crack. A marker tells the reader where to look, which disqualifies
+    any judgement of whether the defect is detectable - and it covers the feature the figure
+    exists to show.
   * The wavefield ANIMATION is on this page, not only in the dossier. It is the most
     convincing single asset in the project.
   * Current state only. No account of superseded configurations or corrected numbers - that
@@ -156,15 +158,11 @@ and the one most likely to become decisive.</p>
 <span class="n">x = 38.25</span> mm.</p>
 </div>
 <figure>
-  <img src="{img['p20']}" alt="k-Wave and FEM images at +20 degrees, annotated">
-  <figcaption><b>Annotated.</b> k-Wave left, ours right. Grey arcs mark the true pipe walls and the
-  lime marker the true notch.</figcaption>
-</figure>
-<figure>
-  <img src="{img['p20_clean']}" alt="The same two images with no annotation overlay">
-  <figcaption><b>The same two images, unannotated.</b> No wall arcs, no notch marker &mdash; what
-  the images look like to someone judging detectability unaided, which is the fair way to look at
-  them. Identical data to the figure above.</figcaption>
+  <img src="{img['p20_clean']}" alt="k-Wave and FEM images at +20 degrees">
+  <figcaption><b>k-Wave left, ours right.</b> Nothing is drawn on either image &mdash; no wall
+  arcs, no marker on the crack. This is what an inspector judging detectability actually sees, and
+  the only fair way to look at them. The forward solver is the only difference between the two
+  panels.</figcaption>
 </figure>
 <div class="tw">
 <table>
@@ -196,41 +194,53 @@ and the one most likely to become decisive.</p>
 took one specific path, so energy arriving any other way &mdash; or invented numerically &mdash;
 lands at whatever depth its arrival time implies. The standard is unforgiving: a defect-free wall
 must image black. <b>Neither model's does.</b></p>
-<p>Two independent changes were tested against it, and both work. They act on different things, so
-their gains add.</p>
+<p>Five techniques were tried against it. <b>Two work and cost nothing</b>, one works but moves
+the measurement so it is not adopted, and two cannot work &mdash; for reasons that can be shown
+rather than argued.</p>
 </div>
 <div class="tw">
 <table>
-<caption><b>Cumulative artifact reduction</b>, ours at +20&deg;. Lower is cleaner in the right
-three columns. The two changes act in different places, which is why they add.</caption>
-<thead><tr><th>Configuration</th><th class="num">Crack vs clutter</th>
-  <th class="num">Clutter, whole wall</th><th class="num">Clutter, edge band</th>
-  <th class="num">Brightest spot</th></tr></thead>
+<caption><b>Every technique we tried, and what each was worth.</b> Ours at
+<span class="n">+20&deg;</span>. The last column is the one that decides adoption: a cleaner
+picture is worth nothing if the measured crack size moves with it.</caption>
+<thead><tr><th>Technique</th><th class="num">Crack vs clutter</th>
+  <th class="num">Clutter, whole wall</th><th class="num">Clutter, wall edge</th>
+  <th>Effect on crack size</th></tr></thead>
 <tbody>
 <tr><td class="row-label">Starting point</td>
   <td class="num">24.0 dB</td><td class="num">&minus;22.8 dB</td>
-  <td class="num">&minus;21.4 dB</td><td class="num">&minus;13.8 dB</td></tr>
-<tr><td class="row-label">+ imaging-operator anti-aliasing</td>
-  <td class="num fem">26.5 dB</td><td class="num fem">&minus;25.4 dB</td>
-  <td class="num">&minus;23.0 dB</td><td class="num">&minus;15.4 dB</td></tr>
-<tr><td class="row-label">+ shear-matched boundary and sponge</td>
+  <td class="num">&minus;21.4 dB</td><td>&mdash;</td></tr>
+<tr><td class="row-label"><b>Anti-alias the imaging operator</b></td>
+  <td class="num fem"><b>26.5 dB</b></td><td class="num fem"><b>&minus;25.4 dB</b></td>
+  <td class="num">&minus;23.0 dB</td>
+  <td><b>none</b> &mdash; adopted</td></tr>
+<tr><td class="row-label">Match the boundary to shear, add a sponge</td>
   <td class="num">26.5 dB</td><td class="num">&minus;25.4 dB</td>
-  <td class="num fem">&minus;23.9 dB</td><td class="num fem">&minus;15.5 dB</td></tr>
-<tr><td class="row-label"><b>Total change</b></td>
-  <td class="num fem"><b>+2.5 dB</b></td><td class="num fem"><b>&minus;2.6 dB</b></td>
-  <td class="num fem"><b>&minus;2.5 dB</b></td><td class="num fem"><b>&minus;1.7 dB</b></td></tr>
+  <td class="num fem">&minus;23.9 dB</td>
+  <td>shifts it 0.12 mm, and the direction flips with beam angle &mdash; not adopted</td></tr>
+<tr><td class="row-label"><b>Widen the domain 1.8&times;</b></td>
+  <td class="num fem"><b>26.9 dB</b></td><td class="num fem"><b>&minus;25.9 dB</b></td>
+  <td class="num fem"><b>&minus;24.1 dB</b></td>
+  <td><b>none</b> &mdash; best configuration measured</td></tr>
+<tr><td class="row-label">Taper the transmit aperture</td>
+  <td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">&mdash;</td>
+  <td>rejected: cannot work, the alias is in phase across the whole array</td></tr>
+<tr><td class="row-label">Narrow the source bandwidth</td>
+  <td class="num">&mdash;</td><td class="num">&mdash;</td><td class="num">&mdash;</td>
+  <td>rejected: bandwidth <em>is</em> the depth resolution</td></tr>
 </tbody>
 </table>
 </div>
 <figure>
   <img src="{img['artred']}" alt="Wall images before and after the artifact treatments, plus a clutter profile">
-  <figcaption><b>The reduction, measured and shown.</b> Left and centre: the wall before any
-  treatment and after all of them, on <em>one shared colour scale</em>, each referenced to its own
-  crack peak &mdash; the ripple across the mid-wall thins noticeably while the crack itself is
-  untouched. Right: clutter level along the wall with the crack excluded. The untreated curve sits
-  <span class="n">2&ndash;3</span> dB above the others almost everywhere. The two treated curves
-  overlap because the boundary fix acts mainly at the edges, where it takes off a further
-  <span class="n">0.8</span> dB.</figcaption>
+  <figcaption><b>The reduction, measured and shown.</b> Top and middle: the wall before any
+  treatment and in the best configuration measured, on <em>one shared colour scale</em>, each
+  referenced to its own crack peak &mdash; the ripple across the mid-wall thins noticeably while
+  the crack itself is untouched. Bottom: clutter level along the wall with the crack column
+  excluded, one curve per technique. The untreated curve sits <span class="n">2&ndash;3</span> dB
+  above every treated one almost everywhere. Whole-wall clutter falls
+  <span class="n">2.6</span> dB with the imaging fix, and a further
+  <span class="n">0.4</span> dB with the widened domain.</figcaption>
 </figure>
 <div class="col">
 <h3>What each change does</h3>
@@ -257,6 +267,43 @@ direction at both angles. At <span class="n">+20&deg;</span> that is <em>toward<
 (<span class="n">3.85</span> to <span class="n">3.73</span>). A cleaner image bought with a bias in
 the number we are selling is not a trade we will make silently, so the published results use the
 starting boundary and this sits on the table as a characterised option.</p>
+
+<h3>The cleanest result against the reference</h3>
+<p>Widening the model is the one artifact treatment that cost nothing in accuracy, so it is also
+the fairest thing to put next to the reference: same crack, same array, same beamformer, and the
+forward solver still the only difference.</p>
+</div>
+<figure>
+  <img src="{img['wide_vs_kw']}" alt="k-Wave against the widened FEM model at +20 degrees">
+  <figcaption><b>k-Wave left, our widened model right.</b> Nothing drawn on either. The crack is
+  the bright spot at the outer wall; everything else in both panels is numerical.</figcaption>
+</figure>
+<div class="tw">
+<table>
+<caption><b>k-Wave against the artifact-reduced result</b>, <span class="n">+20&deg;</span>,
+one identical beamformer.</caption>
+<thead><tr><th>Metric (true value)</th><th class="num">k-Wave</th>
+  <th class="num">Ours, widened</th><th class="num">Improvement</th></tr></thead>
+<tbody>
+<tr><td class="row-label">Crack depth (4.0 mm)</td><td class="num">3.48 mm (&minus;13%)</td>
+  <td class="num fem">3.73 mm (&minus;6.8%)</td><td class="num fem">half the error</td></tr>
+<tr><td class="row-label">Crack position error</td><td class="num">0.413 mm</td>
+  <td class="num fem">0.165 mm</td><td class="num fem">2.5&times; closer</td></tr>
+<tr><td class="row-label">Crack above clutter (RMS)</td><td class="num">24.0 dB</td>
+  <td class="num fem">26.9 dB</td><td class="num fem">+2.9 dB</td></tr>
+<tr><td class="row-label">Crack above worst-case clutter</td><td class="num">11.6 dB</td>
+  <td class="num fem">14.4 dB</td><td class="num fem">+2.8 dB</td></tr>
+<tr><td class="row-label">Clutter along the wall edge</td><td class="num">&minus;22.1 dB</td>
+  <td class="num fem">&minus;24.1 dB</td><td class="num fem">2.0 dB cleaner</td></tr>
+</tbody>
+</table>
+</div>
+<div class="col">
+<p>One honest exception. Measured as the brightest few pixels in a narrow band at the wall edge
+rather than as energy along it, we are <span class="n">0.7</span> dB <em>dirtier</em> than k-Wave
+there. That bright core is a grating lobe of the array itself &mdash; it is set by the
+<span class="n">0.30</span> mm element pitch and the steering angle, it appears in
+<em>both</em> models, and no change to either solver removes it.</p>
 
 <h3>What k-Wave does about artifacts, and what we do</h3>
 <p>The reference model surrounds its grid with a <b>perfectly matched layer</b> &mdash; a shell in

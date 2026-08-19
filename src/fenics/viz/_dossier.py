@@ -8,7 +8,9 @@ SCOPE, versus the brief:
   * the brief carries +20 deg only; this page carries BOTH angles, each with its own section,
     because the second angle is what turns a result into a finding.
   * deeper on method - meshing, validation and the imaging chain get their own treatment.
-  * every annotated comparison still ships with its un-annotated twin.
+  * every figure is an un-annotated render. No wall arcs, no marker over the crack: being
+    told where to look disqualifies a judgement of detectability, and the marker hides the
+    feature. The annotated PNGs still exist on disk for internal position checks.
   * current state only. No account of superseded configurations - that history lives in git
     and in the branch README, not in a document someone reads to decide something.
 """
@@ -385,19 +387,14 @@ exception is a tie at the loosest threshold, where both models read
 <span class="n">3.85</span> mm.</p>
 </div>
 <figure>
-  <img src="{img['p20']}" alt="k-Wave, FEM, and a defect-free FEM wall at +20 degrees">
+  <img src="{img['p20_clean']}" alt="k-Wave, FEM, and a defect-free FEM wall at +20 degrees">
   <figcaption><b>+20&deg;, three panels:</b> k-Wave, ours, and ours with the crack removed
-  entirely. Each panel is scaled to its own maximum, because the two solvers drive different
-  source amplitudes &mdash; only ratios <em>within</em> an image are comparable. Both real
-  images carry wall clutter of similar character; that similarity is reassuring for validity
-  and is not a win for either side.</figcaption>
-</figure>
-<figure>
-  <img src="{img['p20_clean']}" alt="The same +20 degree images with no annotation at all">
-  <figcaption><b>The same data, nothing drawn on it.</b> No wall arcs, no true-notch marker.
-  The annotated version tells you where to look, which is exactly what you must not be told
-  when judging whether a defect is detectable unaided. Judge the crack from this one; use the
-  overlay only to check position.</figcaption>
+  entirely. <b>Nothing is drawn on any of them</b> &mdash; no wall arcs, no true-notch marker,
+  because being told where to look is exactly what disqualifies a judgement of whether a defect
+  is detectable. Each panel is scaled to its own maximum, since the two solvers drive different
+  source amplitudes and only ratios <em>within</em> an image are comparable. Both real images
+  carry wall clutter of similar character; that similarity is reassuring for validity and is not
+  a win for either side.</figcaption>
 </figure>
 
 <h2 class="col"><span class="num">08</span>Head-to-head at &minus;20 degrees, and why it matters most</h2>
@@ -453,17 +450,12 @@ substantially. The honest reading is that <strong>our sizing advantage is specif
 needed before it can be called general.</p>
 </div>
 <figure>
-  <img src="{img['m20']}" alt="k-Wave versus FEM at minus 20 degrees">
-  <figcaption><b>&minus;20&deg;, annotated.</b> Note that the clutter structure mirrors with
-  the steering direction &mdash; the bright band that sits to the right of the crack at
-  <span class="n">+20&deg;</span> appears on the left here. That mirroring is itself evidence:
-  it identifies the feature as beam-related rather than a property of the wall or the
+  <img src="{img['m20_clean']}" alt="k-Wave versus FEM at minus 20 degrees">
+  <figcaption><b>&minus;20&deg;, nothing drawn on it.</b> The clutter structure mirrors with the
+  steering direction &mdash; the bright band that sits to the right of the crack at
+  <span class="n">+20&deg;</span> appears on the left here. That mirroring is itself evidence: it
+  identifies the feature as beam-related rather than a property of the wall or the
   mesh.</figcaption>
-</figure>
-<figure>
-  <img src="{img['m20_clean']}" alt="The same minus 20 degree images with no annotation">
-  <figcaption><b>&minus;20&deg;, unannotated.</b> Same pairing as above: judge detectability
-  from this, position from the overlay.</figcaption>
 </figure>
 
 <div class="verdict col">
@@ -533,17 +525,23 @@ separately.</caption>
   before any treatment and after both, on <em>one shared colour scale</em>, each referenced to
   its own crack peak &mdash; the ripple across the mid-wall thins noticeably while the crack
   itself is untouched. Bottom: clutter level along the wall with the crack column excluded. The
-  untreated curve sits <span class="n">2&ndash;3</span> dB above the others almost everywhere.
-  The two treated curves overlap because the boundary fix acts at the edges, not across the
-  wall.</figcaption>
+  untreated curve sits <span class="n">2&ndash;3</span> dB above every treated one almost
+  everywhere. Whole-wall clutter, crack column excluded: <span class="n">&minus;22.80</span> dB
+  untreated, <span class="n">&minus;25.41</span> after the imaging fix,
+  <span class="n">&minus;25.43</span> with the boundary work on top &mdash; the two overlap because
+  the boundary acts at the edges, not across the wall &mdash; and
+  <span class="n">&minus;25.86</span> dB with the domain widened instead.</figcaption>
 </figure>
 <figure>
-  <img src="{img['artred_m20']}" alt="The same three-panel artifact figure at minus 20 degrees">
+  <img src="{img['artred_m20']}" alt="The same artifact figure at minus 20 degrees">
   <figcaption><b>&minus;20&deg;: it replicates.</b> Whole-wall clutter falls
   <span class="n">2.59</span> dB here against <span class="n">2.62</span> dB at
   <span class="n">+20&deg;</span> &mdash; agreement to <span class="n">0.03</span> dB across a
   mirrored beam. A treatment that only worked at one steering angle would be a tuning
-  coincidence; this one is a property of the method.</figcaption>
+  coincidence; this one is a property of the method. <b>Three arms rather than four:</b> the
+  widened domain has been run at <span class="n">+20&deg;</span> only, so the replication of
+  <em>that</em> arm is still outstanding &mdash; a twelve-minute run, listed as such rather than
+  assumed.</figcaption>
 </figure>
 <div class="col">
 <h3>What each change does, and why only one is in production</h3>

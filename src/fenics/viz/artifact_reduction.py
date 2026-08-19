@@ -44,6 +44,11 @@ ARMS = [
     ("_legacybf", "FEM_img", "Starting point"),
     ("", "FEM_img", "+ imaging anti-alias"),
     ("_boundary", "FEM shear-matched + sponge_img", "+ boundary and sponge"),
+    # The widened domain is an ALTERNATIVE to the boundary arm above, not a further step on
+    # top of it: it removes the boundary from the question instead of approximating it better.
+    # It is last because it is the best measured configuration, and the heat maps show
+    # panels[0] against panels[-1].
+    ("_widedomain", "FEM wide_img", "+ widened domain"),
 ]
 FLOOR = -40.0  # dB re crack peak, matching the project's standard display range
 
@@ -77,6 +82,12 @@ def main() -> None:
 
     panels = []
     for tag, key, label in ARMS:
+        # An arm may not exist at every angle - the widened domain has only been run at +20 so
+        # far. Skip it with a note rather than failing, so the figure at the other angle still
+        # builds and the caption cannot silently claim an arm that is not there.
+        if not (CMP / f"images_{angle}{tag}.npz").exists():
+            print(f"  arm '{label}' skipped: no images_{angle}{tag}.npz at this angle")
+            continue
         img, x, z = load(tag, key, angle)
         in_wall, crack, t_x = wall_masks(x, z)
         pk = img[crack].max()
@@ -99,8 +110,7 @@ def main() -> None:
         shown = np.where(p["in_wall"], p["db"], np.nan)
         im = ax.pcolormesh(p["x"], p["z"], shown.T, cmap="inferno",
                            vmin=FLOOR, vmax=0.0, shading="auto", rasterized=True)
-        ax.set_title(p["label"] if i == 0 else "After both treatments",
-                     fontsize=11, pad=5)
+        ax.set_title(p["label"], fontsize=11, pad=5)
         ax.set_ylabel("z [mm]", fontsize=9)
         ax.set_xlim(X0, X1)
         ax.set_ylim(Z0, Z1)

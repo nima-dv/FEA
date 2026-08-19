@@ -79,12 +79,12 @@ IMG = {
     "wave": "viz/wavefield_snap_p20deg_t27p0us.png",
     "mesh": "viz/mesh_zoom.png",
     "bw": "viz/bandwidth_convergence.png",
-    "p20": "compare/compare_p20deg.png",
-    "m20": "compare/compare_m20deg.png",
-    # EVERY annotated comparison must ship with its un-annotated twin. Requested by the
-    # research team: the wall arcs and the lime true-notch marker tell the reader where to
-    # look, so nobody can judge unaided detectability with them on. Generate with
-    # `repro/compare_images.py ... --no-overlay`. Keep this pairing for any figure added later.
+    # NO ANNOTATED FIGURE IS SHOWN ON EITHER PAGE. The wall arcs and the lime true-notch
+    # marker tell a reader where to look, which is exactly what disqualifies a judgement of
+    # whether the defect is detectable - and the marker sitting on top of the crack hides the
+    # thing the figure exists to show. The annotated PNGs are still generated (they are useful
+    # internally for checking position) but they are not published. Every figure key here
+    # resolves to a `--no-overlay` render, and any figure added later must too.
     "p20_clean": "compare/compare_p20deg_nooverlay.png",
     "m20_clean": "compare/compare_m20deg_nooverlay.png",
     "base": "compare/baseline_subtract_20deg.png",
@@ -314,8 +314,8 @@ def main() -> None:
         "Should we keep going? Crack simulation decision brief",
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
-        _brief.body({k: img[k] for k in ("gif", "p20", "p20_clean", "m20", "m20_clean", "base", "mesh", "bw",
-                        "artred")}, C5)))
+        _brief.body({k: img[k] for k in ("gif", "p20_clean", "m20_clean", "base", "mesh", "bw",
+                        "artred", "wide_vs_kw")}, C5)))
     if MISSING:
         print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
         for m in MISSING:
