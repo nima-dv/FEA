@@ -114,7 +114,7 @@ CSS = """
   --display:Georgia,"Iowan Old Style","Times New Roman",serif;
   --body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
-  --measure:70ch; --band:980px; --wide:1180px;
+  --measure:70ch; --band:900px; --wide:1180px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
@@ -133,11 +133,14 @@ CSS = """
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--paper); color:var(--ink);
-  font-family:var(--body); font-size:16.5px; line-height:1.65;
+  font-family:var(--body); font-size:16.5px; line-height:1.72;
   -webkit-font-smoothing:antialiased;
 }
 .wrap{max-width:var(--wide); margin:0 auto; padding:0 24px 96px}
-.col{max-width:var(--measure)}
+/* ONE content width, no exceptions: prose, figures, tables, equations and captions all
+   sit on --band, so no element steps in or out as the reader scrolls. If you add a block,
+   give it --band too. --measure survives only as the reading-length reference. */
+.col{max-width:var(--band)}
 header.mast{border-bottom:1px solid var(--rule); padding:44px 0 26px; margin-bottom:40px}
 .eyebrow{
   font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase;
@@ -218,7 +221,7 @@ td.num,th.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-a
 /* figures */
 figure{margin:28px 0 34px; max-width:var(--band)}
 figure img{width:100%; height:auto; display:block; background:var(--surface); border:1px solid var(--rule)}
-figcaption{font-size:13.5px; color:var(--ink-soft); margin-top:11px; max-width:var(--measure)}
+figcaption{font-size:13.5px; color:var(--ink-soft); margin-top:11px; max-width:var(--band)}
 figcaption b{color:var(--ink); font-weight:650}
 
 /* claim ledger */
