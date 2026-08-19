@@ -121,6 +121,13 @@ IMG = {
     # show - the quantitative figure carries that claim, not these.
     "bnd_clean": "compare/compare_p20deg_boundary_nooverlay.png",
     "wide_clean": "compare/compare_p20deg_widedomain_nooverlay.png",
+    "wide_vs_kw": "compare/compare_p20deg_widevskwave_nooverlay.png",
+    # The animation PAIR. Rendered from two solves that differ in ONE thing - domain width.
+    # Same mesh targets (377,658 vs 377,250 samples in the shared window), same 18-46 us
+    # window, same x range, and the wide one forced onto the narrow one's colour limits
+    # with --vlim, so brightness means amplitude rather than normalisation.
+    "gif_base": "viz/wavefield_pair_base.gif",
+    "gif_wide": "viz/wavefield_pair_w165.gif",
     "healthy_clean": "compare/compare_p20deg_healthy_boundary_nooverlay.png",
 }
 

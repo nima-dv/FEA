@@ -258,6 +258,18 @@ direction at both angles. At <span class="n">+20&deg;</span> that is <em>toward<
 the number we are selling is not a trade we will make silently, so the published results use the
 starting boundary and this sits on the table as a characterised option.</p>
 
+<h3>What k-Wave does about artifacts, and what we do</h3>
+<p>The reference model surrounds its grid with a <b>perfectly matched layer</b> &mdash; a shell in
+which waves decay without reflecting, and the best boundary technology in the field. Ours is a
+simpler absorbing condition, exact only for waves arriving head-on. <b>On boundary treatment they
+are ahead of us,</b> which is worth stating because it locates our advantage elsewhere: in the
+conforming geometry and the higher-order solver, not in the boundary.</p>
+<p>Their PML is also not optional. A spectral solver takes derivatives with FFTs, and an FFT is
+periodic &mdash; without an absorbing layer, energy leaving one edge re-enters at the other. We
+have the cruder boundary and the option they lack: make the domain bigger and let the reflections
+arrive too late to matter. Widening ours by <span class="n">1.8&times;</span> cost twelve minutes
+on the GPU and is what closed the boundary question.</p>
+
 <h3>What is left</h3>
 <p>A residual edge artefact, after six candidate causes were tested and eliminated &mdash; the most
 direct being to widen the model by <span class="n">1.8&times;</span>, moving the side boundaries far

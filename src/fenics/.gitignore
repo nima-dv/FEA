@@ -20,6 +20,9 @@ results/**/*.bp
 # The imaging caches and figures under results/compare/*widedomain* carry the evidence, and
 # the README records the two commands that rebuild it.
 results/ili_forward/channel_data_*_w165_*.npz
+# Snapshot runs exist to make animations; their channel data is a byproduct of an
+# illustrative degree-3 solve, not a result, and nothing reads it.
+results/ili_forward/channel_data_snap*.npz
 
 # Extracted k-Wave cases: only ~1 min to re-extract, but re-extraction needs data/derrell/,
 # which is itself gitignored bulk. ~24 MB each.

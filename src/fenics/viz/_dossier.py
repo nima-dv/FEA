@@ -616,7 +616,168 @@ is derivable rather than arguable.</p>
   rather than during it. The bright feature near the right-hand edge is essentially
   unchanged.</figcaption>
 </figure>
+<figure>
+  <img src="{img['gif_base']}" alt="Wavefield animation, standard 93 mm domain">
+  <figcaption><b>Standard domain, 93 mm.</b> The beam arrives as pressure in the water, converts
+  at the inner wall and skips through the steel as shear. Watch the right-hand edge from about
+  <span class="n">29</span> microseconds: energy reaches the absorbing boundary and part of it
+  comes back <em>while the crack echo is still arriving</em>.</figcaption>
+</figure>
+<figure>
+  <img src="{img['gif_wide']}" alt="Wavefield animation, widened 165 mm domain, same window">
+  <figcaption><b>Widened domain, 165 mm &mdash; same window, same scale.</b> Identical mesh
+  targets (<span class="n">377,658</span> against <span class="n">377,250</span> samples in the
+  shared window), identical time window, and the colour limits of the panel above forced onto this
+  one, so a brightness difference means amplitude and not normalisation. The frame is cropped to
+  the same <span class="n">&minus;8</span> to <span class="n">85</span> mm; the model itself
+  continues to <span class="n">120</span> mm off-frame, which is where the energy goes instead of
+  returning. The visible late-time clutter along the right-hand wall is thinner &mdash; and that
+  impression is real, but it is <em>not</em> what the published metric measures. The next
+  subsection is about that gap.</figcaption>
+</figure>
 <div class="col">
+<h3>Two edge metrics, and why the eye reads the other one</h3>
+<p>The published edge number is a <strong>p95 in a narrow radial band</strong> near the outer
+wall: it tracks the few brightest pixels where a real defect would appear. The second definition
+is an <strong>RMS down the whole edge column</strong>: it tracks total energy over an area, which
+is much closer to what an eye integrating a heat map actually responds to. Put every treatment we
+have tried against both and they tell different stories &mdash; consistently:</p>
+<table>
+<thead><tr><th>at +20&deg;, dB re own crack peak</th><th class="num">bright core<br>(p95, pinned)</th>
+  <th class="num">diffuse skirt<br>(all-z RMS)</th><th class="num">crack / clutter</th>
+  <th class="num">extent, true 4.0</th></tr></thead>
+<tbody>
+<tr><td class="row-label">k-Wave</td><td class="num">&minus;15.88</td>
+  <td class="num">&minus;22.07</td><td class="num">24.0 dB</td><td class="num">3.48 mm</td></tr>
+<tr><td class="row-label">FEM, as published</td><td class="num">&minus;15.39</td>
+  <td class="num">&minus;23.04</td><td class="num">26.5 dB</td><td class="num fem">3.73 mm</td></tr>
+<tr><td class="row-label">+ shear-matched boundary</td><td class="num">&minus;15.46</td>
+  <td class="num">&minus;23.46</td><td class="num">26.3 dB</td><td class="num">3.85 mm</td></tr>
+<tr><td class="row-label">+ sponge layer</td><td class="num">&minus;15.47</td>
+  <td class="num">&minus;23.85</td><td class="num">26.5 dB</td><td class="num">3.85 mm</td></tr>
+<tr><td class="row-label">domain widened 1.8&times;</td><td class="num">&minus;15.15</td>
+  <td class="num fem">&minus;24.09</td><td class="num fem">26.9 dB</td>
+  <td class="num fem">3.73 mm</td></tr>
+<tr><td class="row-label"><b>spread across all four</b></td>
+  <td class="num"><b>0.32 dB, no trend</b></td>
+  <td class="num fem"><b>1.05 dB, monotone</b></td><td class="num">&mdash;</td>
+  <td class="num">&mdash;</td></tr>
+</tbody>
+</table>
+<p>That is a coherent physical picture rather than two metrics disagreeing at random. <strong>The
+boundary contributes a low-level diffuse skirt, and every improvement to it removes a little more
+&mdash; monotonically, in the order you would predict from how good each treatment is.</strong>
+The bright core does not move for any of them: <span class="n">0.32</span> dB across a crude
+dashpot, a corrected dashpot, a 55 dB sponge and removing the boundary from the problem
+altogether. Two different sources, and only one of them is the boundary's.</p>
+<p>So both readings are right about different things. If the widened domain looks cleaner along
+that wall, it is: about <span class="n">1</span> dB of diffuse energy over an area, which is
+exactly where an eye is more sensitive than a p95. And the pinned metric is still the one to
+publish, because the bright core is what would be mistaken for a defect &mdash; it is the
+false-call risk, and it is unmoved. We keep the strict metric and state the softer one next to
+it.</p>
+
+<h3>Every artefact-reduction method tried, and what each was worth</h3>
+<table>
+<thead><tr><th>method</th><th>what it changes</th><th class="num">clutter</th>
+  <th class="num">sizing</th><th>status</th></tr></thead>
+<tbody>
+<tr><td class="row-label">Imaging-operator anti-aliasing</td>
+  <td>Band-limits the migration operator, the textbook cause of streak clutter at steep image
+  angles. Applied to <em>both</em> datasets.</td>
+  <td class="num fem">+2.5 dB</td><td class="num">unchanged</td>
+  <td><b>In production.</b> The only large win, and the only one that costs nothing.</td></tr>
+<tr><td class="row-label">Shear-matched absorbing boundary</td>
+  <td>The dashpot damped shear at the compression impedance, over-damping shear by ~30% of
+  amplitude. Corrected to the true shear impedance.</td>
+  <td class="num">&minus;0.4 dB skirt</td><td class="num">+0.12 mm, sign flips with angle</td>
+  <td>Characterised, not adopted &mdash; a cleaner image bought with a bias in the quantity we
+  sell.</td></tr>
+<tr><td class="row-label">Graded sponge layer</td>
+  <td>Damping ramped across the dead margins, no impedance step. Measured at ~55 dB round trip.</td>
+  <td class="num">&minus;0.4 dB skirt</td><td class="num">same bias</td>
+  <td>Same verdict. Also has an optimum rather than a maximum: 40 dB beat both 60 and 200.</td></tr>
+<tr><td class="row-label">Widen the domain 1.8&times;</td>
+  <td>Removes the boundary from the question instead of approximating it better. Margin 8 mm
+  &rarr; 45 mm, so side-wall returns land after the crack echo.</td>
+  <td class="num">&minus;0.24 dB skirt, core unmoved</td><td class="num">unchanged</td>
+  <td>Null on the pinned metric. Kept as the experiment that closed the question.</td></tr>
+<tr><td class="row-label">Finer mesh</td>
+  <td>Refinement in the solver, not the imaging.</td>
+  <td class="num fem">monotone</td><td class="num">monotone toward truth</td>
+  <td>Every metric improves with refinement, which is what convergence looks like. Bounded by
+  cost, no longer badly &mdash; see section 14.</td></tr>
+<tr><td class="row-label">Transmit apodisation</td>
+  <td>Taper the aperture to suppress the grating lobe.</td>
+  <td class="num">&mdash;</td><td class="num">&mdash;</td>
+  <td><b>Rejected on their own reasoning:</b> at the alias angle every element is back in phase,
+  so no weighting removes it.</td></tr>
+<tr><td class="row-label">Narrower source band</td>
+  <td>Reduce the energy above the grating-lobe-free ceiling.</td>
+  <td class="num">&mdash;</td><td class="num">&mdash;</td>
+  <td><b>Rejected:</b> bandwidth sets axial resolution, so this buys a clean image by destroying
+  the measurement.</td></tr>
+</tbody>
+</table>
+<p>Read down the sizing column: <strong>every method that reduced clutter by more than a decibel
+left the measurement alone, and every method that touched the measurement bought less than a
+decibel.</strong> That is the discipline the whole exercise runs on &mdash; a cleaner picture is
+worth nothing if the number moves with it.</p>
+
+<h3>The widened model against k-Wave</h3>
+</div>
+<figure>
+  <img src="{img['wide_vs_kw']}" alt="k-Wave against the widened FEM model at +20 degrees, unannotated">
+  <figcaption><b>k-Wave and the widened FEM model, one identical beamformer, no annotation.</b>
+  The forward solver is the only difference between these two panels.</figcaption>
+</figure>
+<div class="col">
+<p>Against the reference, the widened model is the best configuration we have produced:
+crack-to-clutter <span class="n">26.9</span> against <span class="n">24.0</span> dB, worst-case
+clutter <span class="n">14.4</span> against <span class="n">11.6</span> dB, position error
+<span class="n">0.165</span> against <span class="n">0.413</span> mm, extent
+<span class="n">3.73</span> against <span class="n">3.48</span> mm on a true
+<span class="n">4.0</span>. On the edge specifically it splits the same way as everything else in
+this section: <span class="n">2.02</span> dB cleaner on the diffuse skirt,
+<span class="n">0.74</span> dB dirtier on the bright core. We are ahead on the wall as a whole and
+still behind on the brightest few pixels at the edge, and that is the honest summary.</p>
+
+<h3>What k-Wave does instead: a PML &mdash; and why it has no choice</h3>
+<p>Their configuration, read from their own script: the elastic solver
+<code>pstdElastic2D</code> with <code>PMLSize</code> set from a
+<span class="n">1</span> mm width at a <span class="n">50</span> micron grid, so
+<span class="n">20</span> grid points, <code>PMLAlpha</code>
+<span class="n">2</span>, and <code>PMLInside</code> false &mdash; the layer is added
+<em>outside</em> the grid they define, so their full domain stays usable and the computational
+grid grows by <span class="n">40</span> points in each direction.</p>
+<p>A <strong>perfectly matched layer</strong> is the best boundary technology in this field. Rather
+than absorbing at the surface, as our dashpot does, it makes a thin shell in which waves decay
+with no reflection at the interface, at any angle. Ours is a first-order surface condition: exact
+only for a wave arriving head-on, and increasingly leaky as the angle grows. <strong>On boundary
+treatment, their method is straightforwardly better than ours.</strong> It is worth saying plainly,
+because it means our cleaner images are not coming from a better boundary &mdash; they are coming
+from the conforming geometry and the higher-order operator, and our answer to boundaries is
+brute force.</p>
+<p>Two caveats belong with that, in both directions. First, a PML's absorption is set by its
+thickness in <em>wavelengths</em>, and <span class="n">1</span> mm is
+<span class="n">2.7</span> wavelengths in water but only <span class="n">1.3</span> shear
+wavelengths in steel at <span class="n">4</span> MHz &mdash; thin by the usual guidance of several,
+and the shear wave is the one that carries this measurement. We have their channel data and not
+their fields, so we cannot measure their boundary; this is an observation about the configuration,
+not a measured failure. Second, PMLs are known to degrade at grazing incidence, which is exactly
+how energy meets a side wall in a long thin pipe section.</p>
+<p>And the structural point, which is really about method rather than settings. Their solver takes
+spatial derivatives with FFTs, and an FFT is periodic: without an absorbing layer, energy leaving
+the right edge <em>re-enters at the left</em>. The PML is not a refinement they added for image
+quality &mdash; it is mandatory, or the simulation is wrong. Meanwhile the option we just used is
+effectively closed to them: widening a spectral grid raises the cost of every FFT over the whole
+domain, and the grid has to be padded to a size with small prime factors, which their script does
+explicitly. Finite elements pay for extra cells locally and linearly. <strong>So each method's
+boundary strategy follows from its mathematics: they must have an excellent boundary because they
+cannot escape it, and we can afford a mediocre one because we can move it away.</strong> Ours is
+bounded too &mdash; the geometry caps widening at <span class="n">1.84&times;</span> &mdash; but
+the escape route exists, and it cost twelve minutes.</p>
+
 <h3>What is left, and the part that is not ours</h3>
 <p>A residual edge artefact survives, and six candidate causes have now been tested and
 eliminated: the absorbing boundary, the domain width, mesh coarsening, sample-rate aliasing in the

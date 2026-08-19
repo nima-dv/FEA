@@ -150,6 +150,19 @@ def main() -> None:
                          "palette costs nothing visually and dominates the file size.")
     ap.add_argument("--stills", default=None, metavar="T1,T2,...",
                     help="also write PNG stills at these times [us]")
+    ap.add_argument("--vlim", default=None, metavar="WATER,STEEL",
+                    help="force the two colour limits instead of deriving them from this "
+                         "file's own p99.5. REQUIRED for a side-by-side pair: with per-file "
+                         "limits the same wave renders at a different brightness in each "
+                         "panel, and a viewer would read the normalisation as physics. Run "
+                         "one animation first, then pass the limits it printed to the other.")
+    ap.add_argument("--xlim", default=None, metavar="X0,X1",
+                    help="crop to this x window [mm]. Needed to animate two domains of "
+                         "DIFFERENT width over the same window: at a fixed figure size a "
+                         "wider domain would otherwise render at a different mm-per-pixel, "
+                         "and its colour scale would be a percentile over a different region. "
+                         "The crop is applied to the sample cloud before both, so a cropped "
+                         "wide run and an uncropped narrow run are pixel-comparable.")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -157,6 +170,16 @@ def main() -> None:
     x, z = d["x"] * 1e3, d["z"] * 1e3
     div, curl, t_us = d["div"], d["curl"], d["t"] * 1e6
     steel = d["steel"].astype(bool)
+    if args.xlim:
+        x0, x1 = (float(v) for v in args.xlim.split(","))
+        keep = (x >= x0) & (x <= x1)
+        if not keep.any():
+            raise SystemExit(f"--xlim {x0},{x1} keeps no samples; data spans "
+                             f"{x.min():.1f} to {x.max():.1f} mm")
+        print(f"xlim crop: {keep.sum()} of {x.size} samples kept, "
+              f"x {x0:.1f} to {x1:.1f} mm (data spans {x.min():.1f} to {x.max():.1f})")
+        x, z, steel = x[keep], z[keep], steel[keep]
+        div, curl = div[:, keep], curl[:, keep]
     deg = int(d["degree"]) if "degree" in d.files else 0
     ang = float(d["angle"]) if "angle" in d.files else 0.0
     nf = div.shape[0]
@@ -173,6 +196,11 @@ def main() -> None:
     s_steel = np.percentile(np.abs(curl[:, steel]), args.clip)
     print(f"colour limits: water |div u| {s_water:.4g}, steel |curl u| {s_steel:.4g} "
           f"(each = p{args.clip} of its own region)")
+    if args.vlim:
+        v_w, v_s = (float(v) for v in args.vlim.split(","))
+        print(f"  OVERRIDDEN by --vlim: water {v_w:.4g} ({v_w/s_water:.3f}x this file's own), "
+              f"steel {v_s:.4g} ({v_s/s_steel:.3f}x) - shared scale for a side-by-side pair")
+        s_water, s_steel = v_w, v_s
 
     tri, nmask = build_triangulation(x, z, steel, has_notch)
     print(f"triangulation: {tri.triangles.shape[0]} triangles, {nmask} masked "
