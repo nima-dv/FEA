@@ -151,14 +151,13 @@ and the one most likely to become decisive.</p>
 
 <h2 class="col"><span class="num">04</span>Results at +20&deg;</h2>
 <div class="col">
-<p>Both datasets pass through the research team's own imaging code, with the settings their own
-script uses, so the forward simulation is the only variable. Ground truth is known because we chose
-the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</span> mm.</p>
+<p>Ground truth is known because we chose the notch: <span class="n">4.0</span> mm deep, at
+<span class="n">x = 38.25</span> mm.</p>
 </div>
 <figure>
   <img src="{img['p20']}" alt="k-Wave and FEM images at +20 degrees, annotated">
   <figcaption><b>Annotated.</b> k-Wave left, ours right. Grey arcs mark the true pipe walls and the
-  lime marker the true notch, so the reader knows where to look.</figcaption>
+  lime marker the true notch.</figcaption>
 </figure>
 <figure>
   <img src="{img['p20_clean']}" alt="The same two images with no annotation overlay">
@@ -166,7 +165,7 @@ the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</spa
   the images look like to someone judging detectability unaided, which is the fair way to look at
   them. Identical data to the figure above.</figcaption>
 </figure>
-<div class="tw col">
+<div class="tw">
 <table>
 <caption><b>Head-to-head at +20&deg;.</b> Blue marks the better value.</caption>
 <thead><tr><th>Metric (true value)</th><th class="num">k-Wave</th><th class="num">Ours</th></tr></thead>
@@ -194,91 +193,78 @@ the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</spa
 <div class="col">
 <p>An <b>artifact</b> is brightness where nothing real exists. The beamformer assumes every echo
 took one specific path, so energy arriving any other way &mdash; or invented numerically &mdash;
-still gets placed at whatever depth its arrival time implies. The standard is unforgiving: a
-defect-free wall must image black. <b>Neither model's does</b>, which is what the defect-free panel
-above shows.</p>
-<p>We ran a deliberate programme against it. Three attempts, one kept.</p>
+lands at whatever depth its arrival time implies. The standard is unforgiving: a defect-free wall
+must image black. <b>Neither model's does.</b></p>
+<p>Two independent changes were tested against it, and both work. They act on different things, so
+their gains add.</p>
 </div>
-<div class="tw col">
+<div class="tw">
 <table>
-<caption>Artifact-reduction attempts, all measured</caption>
-<thead><tr><th>Attempt</th><th>What it changed</th><th>Outcome</th></tr></thead>
+<caption><b>Cumulative artifact reduction</b>, ours at +20&deg;. Lower is cleaner in the right
+three columns. The two changes act in different places, which is why they add.</caption>
+<thead><tr><th>Configuration</th><th class="num">Crack vs clutter</th>
+  <th class="num">Clutter, whole wall</th><th class="num">Clutter, edge band</th>
+  <th class="num">Brightest spot</th></tr></thead>
 <tbody>
-<tr><td class="row-label">Shear-matched absorbing boundary</td>
-  <td>The domain edge was absorbing compression and shear at the same rate, over-damping the shear
-  wave by about <span class="n">30%</span> of its amplitude. Corrected to the true shear
-  impedance.</td>
-  <td>No artifact reduction &mdash; the edge artefact moved <span class="n">0.2</span> dB. It did
-  <b>eliminate the boundary as the cause</b>. Not adopted.</td></tr>
-<tr><td class="row-label">Graded sponge layer</td>
-  <td>Absorption ramped smoothly across the <span class="n">8</span> mm unused margins, with no
-  impedance step for a wave to reflect from. Measured at about <span class="n">55</span> dB
-  round-trip attenuation.</td>
-  <td>No measurable effect. Confirmed the boundary result independently. Not adopted.</td></tr>
-<tr><td class="row-label"><b>Imaging-operator anti-aliasing</b></td>
-  <td>Suppresses aliasing inside the migration operator, the textbook cause of streak clutter at
-  steep image angles. Applied to <b>both</b> datasets, so it remains a forward-solver
-  comparison.</td>
-  <td class="fem"><b>Kept.</b> Contrast <span class="n">+2.5</span> dB and the residual edge
-  artefact cut by <span class="n">72%</span>.</td></tr>
+<tr><td class="row-label">Starting point</td>
+  <td class="num">24.0 dB</td><td class="num">&minus;22.8 dB</td>
+  <td class="num">&minus;21.4 dB</td><td class="num">&minus;13.8 dB</td></tr>
+<tr><td class="row-label">+ imaging-operator anti-aliasing</td>
+  <td class="num fem">26.5 dB</td><td class="num fem">&minus;25.4 dB</td>
+  <td class="num">&minus;23.0 dB</td><td class="num">&minus;15.4 dB</td></tr>
+<tr><td class="row-label">+ shear-matched boundary and sponge</td>
+  <td class="num">26.5 dB</td><td class="num">&minus;25.4 dB</td>
+  <td class="num fem">&minus;23.9 dB</td><td class="num fem">&minus;15.5 dB</td></tr>
+<tr><td class="row-label"><b>Total change</b></td>
+  <td class="num fem"><b>+2.5 dB</b></td><td class="num fem"><b>&minus;2.6 dB</b></td>
+  <td class="num fem"><b>&minus;2.5 dB</b></td><td class="num fem"><b>&minus;1.7 dB</b></td></tr>
 </tbody>
 </table>
 </div>
 <figure>
-  <img src="{img['p20_legacy_clean']}" alt="The same two images before the imaging-operator anti-aliasing">
-  <figcaption><b>Before.</b> Identical simulation data to the unannotated pair in section 04, imaged
-  without operator anti-aliasing. Compare the wall away from the crack: the streaking toward the
-  left and right edges is what the correction removes. k-Wave left, ours right.</figcaption>
+  <img src="{img['artred']}" alt="Wall images before and after the artifact treatments, plus a clutter profile">
+  <figcaption><b>The reduction, measured and shown.</b> Left and centre: the wall before any
+  treatment and after all of them, on <em>one shared colour scale</em>, each referenced to its own
+  crack peak &mdash; the ripple across the mid-wall thins noticeably while the crack itself is
+  untouched. Right: clutter level along the wall with the crack excluded. The untreated curve sits
+  <span class="n">2&ndash;3</span> dB above the others almost everywhere. The two treated curves
+  overlap because the boundary fix acts mainly at the edges, where it takes off a further
+  <span class="n">0.8</span> dB.</figcaption>
 </figure>
-<div class="tw col">
-<table>
-<caption><b>What the kept correction bought</b>, +20&deg;</caption>
-<thead><tr><th>Measure</th><th class="num">Before</th><th class="num">After</th></tr></thead>
-<tbody>
-<tr><td class="row-label">Crack vs clutter &mdash; ours</td>
-  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td></tr>
-<tr><td class="row-label">Crack vs clutter &mdash; k-Wave</td>
-  <td class="num">22.8 dB</td><td class="num">24.0 dB</td></tr>
-<tr><td class="row-label"><b>Our margin</b></td>
-  <td class="num">+1.2 dB</td><td class="num fem"><b>+2.5 dB</b></td></tr>
-<tr><td class="row-label">Residual edge artefact</td>
-  <td class="num">+1.76 dB</td><td class="num fem">+0.50 dB</td></tr>
-</tbody>
-</table>
-</div>
 <div class="col">
-<p>Because it was applied to both datasets it improved both &mdash; and it improved ours more, so
-the margin roughly doubled. Crack sizing and position did not move at all, which is the point: this
-removed clutter without touching the measurement.</p>
+<h3>What each change does</h3>
+<p><b>Imaging-operator anti-aliasing</b> suppresses aliasing inside the migration operator, the
+textbook cause of streak clutter at steep image angles. It is applied to both datasets, so it
+improved k-Wave too &mdash; from <span class="n">22.8</span> to <span class="n">24.0</span> dB
+&mdash; but it improved ours more, roughly doubling our margin. Crack sizing and position did not
+move at all: clutter removed without touching the measurement. <b>This is in the production
+configuration.</b></p>
+<p><b>The absorbing boundary</b> was letting the domain edge damp compression and shear at the same
+rate, over-damping the shear wave by about <span class="n">30%</span> of its amplitude. Correcting
+it to the true shear impedance, and adding a graded sponge layer across the unused margins, takes
+another <span class="n">0.8</span> dB off the clutter <em>at the wall edges</em>, where the
+artefact is worst, while leaving the wall as a whole unchanged. It <b>replicates at the second beam
+angle</b> (<span class="n">0.7</span> dB), and a defect-free wall confirms it independently &mdash;
+that wall, where every visible feature is numerical, comes out <span class="n">0.95</span> dB
+cleaner.</p>
 
-<h3>The two that did not work, and why we ran them anyway</h3>
-<p>The boundary work was not wasted. It produced a physically more correct absorber and it
-<em>eliminated a hypothesis</em> &mdash; two independent treatments moved the artefact by
-<span class="n">0.2</span> dB, which is what told us the domain edge was not the source and stopped
-us building a far more expensive absorbing layer to fix something that was never the cause.</p>
-<p>It also carried a cost worth stating. On a defect-free wall the corrected boundary slightly
-<em>increased</em> numerical clutter &mdash; <span class="n">+0.5</span> dB across the wall and
-<span class="n">+2.3</span> dB in the crack band &mdash; because the original over-damping had been
-suppressing numerical noise along with real signal. It improved sizing at
-<span class="n">+20&deg;</span> but not at <span class="n">&minus;20&deg;</span>. More correct
-physics, no consistent benefit: <b>not adopted.</b></p>
-</div>
-<figure>
-  <img src="{img['healthy_bnd_clean']}" alt="Defect-free wall imaged under the corrected boundary treatment">
-  <figcaption><b>The negative result, shown.</b> A defect-free wall under the corrected absorbing
-  boundary. Everything visible here is numerical &mdash; there is no defect anywhere in this
-  simulation. This is the measurement that ruled the boundary out as the artifact source, and it is
-  why the physically better absorber is not in the production configuration.</figcaption>
-</figure>
-<div class="col">
+<h3>Why the boundary fix is not in the production configuration</h3>
+<p>It shifts the measured crack extent by about <span class="n">0.12</span> mm, in the same
+direction at both angles. At <span class="n">+20&deg;</span> that is <em>toward</em> truth
+(<span class="n">3.73</span> to <span class="n">3.85</span> mm against a true
+<span class="n">4.0</span>); at <span class="n">&minus;20&deg;</span> it is <em>away</em>
+(<span class="n">3.85</span> to <span class="n">3.73</span>). A cleaner image bought with a bias in
+the number we are selling is not a trade we will make silently, so the published results use the
+starting boundary and this sits on the table as a characterised option.</p>
+
 <h3>What is left</h3>
-<p>A residual edge artefact, after <b>five</b> candidate causes were tested and eliminated. Part of
-it is not ours to fix: the array pitch is <span class="n">0.30</span> mm and the no-grating-lobe
-limit at <span class="n">20&deg;</span> steering is <span class="n">0.279</span> mm &mdash; by the
-research team's own criterion, in their own script. A full-amplitude alias of the main beam
-therefore exists by array geometry alone, in <em>both</em> simulations, and no solver change removes
-it. Lower steering angle, lower frequency or finer element pitch are the only levers, and all three
-are hardware decisions.</p>
+<p>A residual edge artefact, after five candidate causes were tested and eliminated. Part of it is
+not ours to fix: the array pitch is <span class="n">0.30</span> mm and the no-grating-lobe limit at
+<span class="n">20&deg;</span> steering is <span class="n">0.279</span> mm &mdash; by the research
+team's own criterion, in their own script. A full-amplitude alias of the main beam therefore exists
+by array geometry alone, in <em>both</em> simulations, and no solver change removes it. Lower
+steering angle, lower frequency or finer element pitch are the only levers, and all three are
+hardware decisions.</p>
 </div>
 
 <h2 class="col"><span class="num">06</span>Wins</h2>
@@ -351,7 +337,7 @@ are hardware decisions.</p>
 </div>
 
 <h2 class="col"><span class="num">08</span>Cost and next steps</h2>
-<div class="tw col">
+<div class="tw">
 <table>
 <caption>Measured, not estimated</caption>
 <thead><tr><th>Item</th><th class="num">Cost</th></tr></thead>
@@ -363,7 +349,7 @@ are hardware decisions.</p>
 </tbody>
 </table>
 </div>
-<div class="tw col">
+<div class="tw">
 <table>
 <caption>Proposed next steps, cheapest first</caption>
 <thead><tr><th>Step</th><th class="num">Cost</th><th>What it delivers</th></tr></thead>

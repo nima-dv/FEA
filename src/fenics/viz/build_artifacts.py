@@ -92,8 +92,12 @@ IMG = {
     # operator anti-aliasing was enabled - the before/after pair for section 05. The healthy
     # one is the defect-free wall under the shear-matched + sponge boundary variant, i.e. the
     # experiment that came back negative. Both un-annotated, per the twin rule.
-    "p20_legacy_clean": "compare/compare_p20deg_legacybf_nooverlay.png",
-    "healthy_bnd_clean": "compare/compare_p20deg_healthy_boundary_nooverlay.png",
+    # Purpose-built by viz/artifact_reduction.py. The stock comparison figures CANNOT show
+    # artifact reduction: each of their panels is normalised to its own maximum, and absolute
+    # levels are not comparable between imaging chains. This one puts every panel on one
+    # shared scale referenced to its own crack peak, and carries the sub-visual part as a
+    # curve. Do not substitute a stock compare_*.png here.
+    "artred": "viz/artifact_reduction.png",
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
     # through both critical angles, rather than one normal-incidence coefficient.
@@ -110,7 +114,7 @@ CSS = """
   --display:Georgia,"Iowan Old Style","Times New Roman",serif;
   --body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
-  --measure:70ch; --wide:1180px;
+  --measure:70ch; --band:980px; --wide:1180px;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
@@ -177,10 +181,15 @@ hr{border:0; border-top:1px solid var(--rule-soft); margin:40px 0}
   color:var(--ink-faint); display:block; margin-bottom:8px;
 }
 .fine{ font-size:13.5px; color:var(--ink-faint); }
+.ledger{max-width:var(--band)}
 
 /* tables */
-.tw{overflow-x:auto; margin:18px 0 26px; border:1px solid var(--rule); background:var(--surface)}
+.tw{
+  overflow-x:auto; max-width:var(--band); margin:28px 0 34px;
+  border:1px solid var(--rule); background:var(--surface);
+}
 .eq{
+  max-width:var(--band);
   font-family:var(--mono); font-size:15px; text-align:center;
   background:var(--sunk); border:1px solid var(--rule-soft);
   padding:14px 18px; margin:18px 0; overflow-x:auto; line-height:2.1;
@@ -197,7 +206,9 @@ thead th{
   font-family:var(--mono); font-size:11.5px; letter-spacing:.07em; text-transform:uppercase;
   color:var(--ink-faint); font-weight:400; vertical-align:bottom;
 }
+thead th{border-bottom:1px solid var(--rule)}
 tbody tr:last-child td{border-bottom:0}
+tbody tr:nth-child(even) td{background:var(--sunk)}
 td.num,th.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right}
 .fem{color:var(--fem); font-weight:650}
 .kw{color:var(--kwave); font-weight:650}
@@ -205,9 +216,9 @@ td.num,th.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-a
 .row-label{color:var(--ink-soft)}
 
 /* figures */
-figure{margin:30px 0 34px; max-width:var(--wide)}
+figure{margin:28px 0 34px; max-width:var(--band)}
 figure img{width:100%; height:auto; display:block; background:var(--surface); border:1px solid var(--rule)}
-figcaption{font-size:13.5px; color:var(--ink-soft); margin-top:10px; max-width:88ch}
+figcaption{font-size:13.5px; color:var(--ink-soft); margin-top:11px; max-width:var(--measure)}
 figcaption b{color:var(--ink); font-weight:650}
 
 /* claim ledger */
@@ -268,7 +279,7 @@ def main() -> None:
         "Decision brief: evidence, limiting factors, cost and recommended next steps for the "
         "open-source crack-simulation benchmark.",
         _brief.body({k: img[k] for k in ("gif", "p20", "p20_clean", "m20", "m20_clean", "base", "mesh", "bw",
-                        "p20_legacy_clean", "healthy_bnd_clean")}, C5)))
+                        "artred")}, C5)))
     if MISSING:
         print("\nPLACEHOLDERS RENDERED - these figures do not exist on disk:")
         for m in MISSING:
