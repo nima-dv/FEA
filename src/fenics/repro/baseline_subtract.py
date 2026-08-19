@@ -53,7 +53,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.bf_loader import load_beamformer                                   # noqa: E402
-from lib.tt_t_image import tt_t_image, image_metrics, FROZEN                # noqa: E402
+from lib.tt_t_image import (tt_t_image, image_metrics, CHAINS,   # noqa: E402
+                            FROZEN)
 
 OUT = Path(__file__).resolve().parents[1] / "results" / "compare"
 NOTCH_X = 38.25
@@ -64,6 +65,9 @@ def main() -> None:
     ap.add_argument("--cracked", required=True)
     ap.add_argument("--healthy", required=True)
     ap.add_argument("--angle", type=float, default=20.0)
+    ap.add_argument("--chain", default="faithfulbf", choices=sorted(CHAINS),
+                    help="imaging chain preset (lib/tt_t_image.CHAINS). Default is the "
+                         "published baseline; 'legacy' reproduces the _legacybf figure.")
     ap.add_argument("--tag", default="", help="suffix for the output figure. Without "
                     "it a variant run SILENTLY OVERWRITES the canonical figure that "
                     "the artifact pages embed, leaving their caption describing a "
@@ -100,7 +104,8 @@ def main() -> None:
     bf = load_beamformer()
     res = {}
     for label, ch in (("cracked", ca), ("healthy", cb), ("difference", diff)):
-        img, x, z = tt_t_image(bf, ch, dta, args.angle, dict(FROZEN), verbose=False)
+        img, x, z = tt_t_image(bf, ch, dta, args.angle, dict(FROZEN), verbose=False,
+                               chain=args.chain)
         m = image_metrics(img, x, z, dict(FROZEN), angle_deg=args.angle)
         res[label] = dict(img=img, x=x, z=z, m=m)
         print(f"  {label:<11} notch-ROI peak {m['crack_peak']:.4g}  "

@@ -72,12 +72,16 @@ def params_from_kwave(d) -> dict:
 
 
 # --- imaging-chain presets ------------------------------------------------------------
-# `legacy` IS THE DEFAULT AND MUST STAY BIT-IDENTICAL. Every published figure and number
-# on disk was made with it, so it is frozen: stride decimation from 2*f0 (factor 23),
-# engine="numpy", no operator antialias, bandpass on.
+# `faithfulbf` IS THE PUBLISHED BASELINE as of 2026-08-19 and is the DEFAULT. It is what
+# the research team's own beamforming_script_simulation.py actually passes; the chain this
+# module used before that date had drifted from it on three counts (below).
 #
-# `faithfulbf` is what the research team's OWN beamforming_script_simulation.py passes,
-# which this module had drifted from on three counts (measured 2026-08-19):
+# `legacy` IS FROZEN AND MUST STAY BIT-IDENTICAL. It reproduces every figure and number
+# committed BEFORE 2026-08-19 - those files now carry the `_legacybf` tag - so it is the
+# only way to regenerate the historical record: stride decimation from 2*f0 (factor 23),
+# engine="numpy", no operator antialias, bandpass on. Do not "tidy" it.
+#
+# The three counts `faithfulbf` closes (all measured 2026-08-19):
 #   dec_from  their line 197-199 sets max_freq = 3*f0, so their factor is 15, not our 23.
 #   antialias their line 698/709 (the imgz_TT_T calls) pass antialias=0.5. We passed
 #             nothing. antialias is the Lumley-Claerbout-Bevc migration-OPERATOR
@@ -98,11 +102,12 @@ CHAINS = dict(
 
 def tt_t_image(bf, channel_data: np.ndarray, dt: float, angle_deg: float,
                params: dict | None = None, verbose: bool = False,
-               chain: str | dict = "legacy"):
+               chain: str | dict = "faithfulbf"):
     """channel_data (n_t, n_elem) time-major -> (|image|, x_ax_mm, z_ax_mm).
 
     `chain` selects an entry of CHAINS (or is a dict of the same shape). It defaults to
-    "legacy", which is the published chain, unchanged.
+    "faithfulbf", the published baseline since 2026-08-19. Pass chain="legacy" to
+    reproduce anything committed before then (the `_legacybf` files).
     """
     p = dict(FROZEN if params is None else params)
     f0 = p["f0"]
@@ -306,7 +311,10 @@ if __name__ == "__main__":
 
     assert CHAINS["legacy"] == dict(dec_from=2.0, engine="numpy", antialias=0.0,
                                     bandpass=True), "legacy chain has been altered"
-    p = Path(__file__).resolve().parents[1] / "results" / "compare" / "images_20.npz"
+    import inspect
+    assert (inspect.signature(tt_t_image).parameters["chain"].default
+            == "faithfulbf"), "default chain is not the published baseline"
+    p = Path(__file__).resolve().parents[1] / "results" / "compare" / "images_20_legacybf.npz"
     d = np.load(p)
     m = {lab: image_metrics(np.nan_to_num(d[f"{lab}_img"]), d["x"], d["z"])
          for lab in ("FEM", "k-Wave")}
