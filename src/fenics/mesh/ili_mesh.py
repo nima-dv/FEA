@@ -126,7 +126,15 @@ STANDOFF = 20.0                 # water standoff on the beam axis
 ARRAY_X0, ARRAY_X1 = 0.0, 76.5  # transducer aperture at z = 0
 N_ELEM, PITCH = 256, 0.30       # 256 elements, centres at x = i*PITCH (255*0.30 = 76.5)
 
-X_MIN, X_MAX = -8.0, 85.0       # lateral domain extent
+X_MIN, X_MAX = -8.0, 85.0       # lateral domain extent (--x-min / --x-max override)
+# HARD GEOMETRIC CEILING on widening. Water occupies z = 0 (flat array plane) up to the ID
+# arc, so the domain is only valid while the arc stays BELOW z = 0. The arc reaches z = 0
+# where |x - X_C| = sqrt(R_ID^2 - Z_C^2), which for this pipe is x = -47.46 and +123.96 mm.
+# Max usable width is therefore 171.4 mm against the default 93.0 - a factor of 1.84, no
+# more. Widening past that is not a flag change: it needs the water region rebuilt to follow
+# the arc at constant standoff.
+X_LIMIT_LO = X_C - math.sqrt(R_ID ** 2 - Z_C ** 2)
+X_LIMIT_HI = X_C + math.sqrt(R_ID ** 2 - Z_C ** 2)
 
 NOTCH_DEPTH = 4.0               # radially inward from the OD
 NOTCH_WIDTH = 1.0               # slot width (parallel sided)
@@ -528,12 +536,20 @@ def group_line_elements(tag: int, lut: np.ndarray):
 # MAIN
 # ========================================================================================
 def main() -> None:
-    global H_NOTCH, INCLUDE_NOTCH, STAIRCASE, NOTCH_FILL   # CLI may override; before first use
+    global H_NOTCH, INCLUDE_NOTCH, STAIRCASE, NOTCH_FILL, X_MIN, X_MAX  # CLI may override
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--scale", type=float, default=1.0,
                     help="multiply all target cell sizes (>1 coarser/faster, <1 finer)")
     ap.add_argument("--quad", action="store_true",
                     help="recombine into quadrilaterals (tensor-product GLL friendly)")
+    ap.add_argument("--x-min", type=float, default=None, metavar="MM",
+                    help="left edge of the domain (default %.1f). Widening the lateral margins "
+                         "delays side-wall reflections: at the default 8 mm margin the first "
+                         "return reaches the array at about 29.5 us, BEFORE the crack echo at "
+                         "33-40 us; at 45 mm it lands near 42.5 us, after it. Bounded by the "
+                         "geometry - see X_LIMIT_LO." % X_MIN)
+    ap.add_argument("--x-max", type=float, default=None, metavar="MM",
+                    help="right edge of the domain (default %.1f). See --x-min." % X_MAX)
     ap.add_argument("--no-plot", action="store_true", help="skip the PNG")
     ap.add_argument("--no-notch", action="store_true",
                     help="build the HEALTHY (defect-free) wall instead. Same sizing fields and "
@@ -561,6 +577,25 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
     # Apply the notch-size override globally so every sizing field and printout agrees.
+    if args.x_min is not None or args.x_max is not None:
+        X_MIN = args.x_min if args.x_min is not None else X_MIN
+        X_MAX = args.x_max if args.x_max is not None else X_MAX
+        # Refuse rather than emit a mesh whose wall pokes through the transducer plane. A
+        # gmsh failure here would be obscure; a geometry failure would be worse, because it
+        # would look like a mesh that ran.
+        if X_MIN < X_LIMIT_LO or X_MAX > X_LIMIT_HI:
+            raise SystemExit(
+                "lateral extent [%.2f, %.2f] mm leaves the valid range [%.2f, %.2f]: the ID "
+                "arc reaches z = 0 there, so the pipe wall would sit above the flat array "
+                "plane. Max usable width is %.1f mm (%.2fx the default 93.0). Going wider "
+                "needs the water region rebuilt to follow the arc at constant standoff."
+                % (X_MIN, X_MAX, X_LIMIT_LO, X_LIMIT_HI,
+                   X_LIMIT_HI - X_LIMIT_LO, (X_LIMIT_HI - X_LIMIT_LO) / 93.0))
+        print("    lateral extent overridden: [%.2f, %.2f] mm, width %.1f mm (%.2fx default); "
+              "margins %.1f / %.1f mm outboard of the aperture"
+              % (X_MIN, X_MAX, X_MAX - X_MIN, (X_MAX - X_MIN) / 93.0,
+                 ARRAY_X0 - X_MIN, X_MAX - ARRAY_X1))
+
     if args.h_notch is not None:
         H_NOTCH = args.h_notch
     if args.no_notch:
@@ -583,6 +618,10 @@ def main() -> None:
     stem = "ili_mesh_healthy" if not INCLUDE_NOTCH else "ili_mesh"
     if abs(args.scale - 1.0) > 1e-9:
         stem += f"_s{args.scale:g}".replace(".", "p")
+    if abs((X_MAX - X_MIN) - 93.0) > 1e-9:
+        # Lateral extent must be in the name for the same reason the scale is: a widened
+        # domain must never silently overwrite the mesh every published solve used.
+        stem += f"_w{X_MAX - X_MIN:.0f}"
     if NOTCH_FILL:
         stem += "_fill"
     if STAIRCASE:

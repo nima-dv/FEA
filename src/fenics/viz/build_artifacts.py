@@ -120,6 +120,7 @@ IMG = {
     # WITH the caveat that a 0.8 dB change is below what a per-panel-normalised heat map can
     # show - the quantitative figure carries that claim, not these.
     "bnd_clean": "compare/compare_p20deg_boundary_nooverlay.png",
+    "wide_clean": "compare/compare_p20deg_widedomain_nooverlay.png",
     "healthy_clean": "compare/compare_p20deg_healthy_boundary_nooverlay.png",
 }
 

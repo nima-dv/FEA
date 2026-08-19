@@ -595,6 +595,16 @@ subtraction.
 
 **Keep any processing change symmetric.** See section 7 - it is important enough to appear twice.
 
+**A geometry change is not a controlled change, because the mesher re-meshes everything.**
+Widening a domain, moving a boundary or resizing a feature hands the whole model back to the mesh
+generator, which re-tessellates globally - so the smallest edge in the mesh changes, and with it the
+global time step. Widening our model 1.8x moved dt from 0.3666 to 0.3288 ns, a 10% change nobody
+asked for, in a quantity that affects numerical dispersion everywhere. Check the direction before
+interpreting the result: here the smaller dt is *less* dispersive, so it can only flatter the new
+run, which is why the small contrast gain that came with it stayed unattributed while the null
+result on the edge artefact still stood. A confound pointing the wrong way would have invalidated
+the experiment instead.
+
 **Validate a port on the quantity you measure, not on a norm.** Moving a solver to different
 hardware, a different library or a different precision will not reproduce the old answer bit for
 bit - a sparse library that sums in a different order differs at round-off from the first step,

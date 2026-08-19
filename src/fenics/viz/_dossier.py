@@ -586,10 +586,41 @@ original boundary and this sits on the table as a characterised option.</p>
   boundary out as the dominant artifact source.</figcaption>
 </figure>
 <div class="col">
+<h3>Testing the side boundaries directly: widen the domain until they cannot matter</h3>
+<p>Every absorbing boundary is an approximation, so the cleanest test of whether ours is the
+artefact source is to move it out of reach and stop approximating. We widened the model laterally
+from <span class="n">93</span> to <span class="n">165</span> mm, taking the margin outboard of the
+aperture from <span class="n">8</span> mm to <span class="n">45</span> mm. That is a timing
+argument, not a comfort margin: it delays the first side-wall return from about
+<span class="n">29.5</span> to <span class="n">42.5</span> microseconds, moving it clear of the
+crack echo at <span class="n">33&ndash;40</span> microseconds. The prediction and the falsifier
+were written down before the run &mdash; a real reduction meant the edge excess dropping more than
+<span class="n">1.5</span> dB, a null meant less than <span class="n">0.5</span> dB.</p>
+<p><strong>The result is a null.</strong> On the pinned edge metric the excess moved
+<span class="n">+0.24</span> dB &mdash; marginally <em>louder</em>, inside the null band. Sizing
+did not move (<span class="n">3.73</span> mm at both widths), nor did position. Overall clutter
+contrast improved slightly (<span class="n">26.5</span> to <span class="n">26.9</span> dB), and we
+are not claiming that as a domain effect: re-meshing at a larger extent changed the smallest edge
+in the mesh, which lowered the global time step from <span class="n">0.3666</span> to
+<span class="n">0.3288</span> ns, and a smaller time step is less numerically dispersive on its
+own. The change carried a passenger, so the small win is unattributed.</p>
+<p>The null is the useful part. The side boundaries are not the source of the residual edge
+artefact, which leaves the array's own grating lobe as the leading explanation &mdash; and that one
+is derivable rather than arguable.</p>
+</div>
+<figure>
+  <img src="{img['wide_clean']}" alt="k-Wave, the standard domain and the widened domain at +20 degrees, unannotated">
+  <figcaption><b>Widening the domain by 1.8x does not remove the edge artefact.</b> k-Wave, then
+  our standard domain, then the same model with the side boundaries moved from 8 mm to 45 mm
+  outboard of the aperture &mdash; far enough that their reflections arrive after the crack echo
+  rather than during it. The bright feature near the right-hand edge is essentially
+  unchanged.</figcaption>
+</figure>
+<div class="col">
 <h3>What is left, and the part that is not ours</h3>
-<p>A residual edge artefact survives, and five candidate causes have now been tested and
-eliminated: the absorbing boundary, mesh coarsening, sample-rate aliasing in the imaging chain,
-the mass matrix, and migration-operator aliasing &mdash; the last of which removed most of the
+<p>A residual edge artefact survives, and six candidate causes have now been tested and
+eliminated: the absorbing boundary, the domain width, mesh coarsening, sample-rate aliasing in the
+imaging chain, the mass matrix, and migration-operator aliasing &mdash; the last of which removed most of the
 excess at <span class="n">+20&deg;</span> (<span class="n">+1.76</span> to
 <span class="n">+0.50</span> dB) but much less at <span class="n">&minus;20&deg;</span>
 (<span class="n">+4.05</span> to <span class="n">+3.47</span> dB), so it contributes without
@@ -727,7 +758,7 @@ be got wrong.</p>
     badly &mdash; which is untested.</p></div></div>
   <div class="claim"><span class="tag no">Open</span><div>
     <p>The residual edge artefact.</p>
-    <p>Five causes eliminated, none of them the answer, and it is worse at
+    <p>Six causes eliminated, none of them the answer, and it is worse at
     <span class="n">&minus;20&deg;</span> than <span class="n">+20&deg;</span>. Part of it is a
     grating lobe inherent to the array geometry and present in both models.</p></div></div>
   <div class="claim"><span class="tag no">Not done</span><div>
@@ -813,9 +844,11 @@ accuracy is the entire point of this simulation.</li>
 <span class="n">2.4</span> hours per steering angle on one CPU core, or
 <span class="n">7.7</span> minutes on a consumer GPU, with no licence either way.</p>
 <p><strong>What that changes, and what it does not.</strong> Work deferred purely on cost &mdash;
-more steering angles, a crack-size sweep, convergence error bars, a much wider domain to remove
-the absorbing boundary entirely &mdash; moves from days to minutes, and those are exactly the
-experiments that would firm up the claims this document marks as bounded. It changes no result:
+more steering angles, a crack-size sweep, convergence error bars &mdash; moves from days to
+minutes, and those are exactly the experiments that would firm up the claims this document marks as
+bounded. The widened-domain test in section 9 is the first of them: it needed a
+<span class="n">1.5&times;</span> larger model over <span class="n">182,000</span> steps and cost
+<span class="n">12</span> minutes, where on the CPU it would have been most of a working day. It changes no result:
 the GPU reproduces the CPU numbers, checked rather than assumed.</p>
 <p>It also does <strong>not</strong> unlock 3-D, and it is worth being precise about why. 3-D is
 limited by <em>memory</em>, not speed: storing this operator at this element order in three

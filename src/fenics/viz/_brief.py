@@ -259,7 +259,10 @@ the number we are selling is not a trade we will make silently, so the published
 starting boundary and this sits on the table as a characterised option.</p>
 
 <h3>What is left</h3>
-<p>A residual edge artefact, after five candidate causes were tested and eliminated. Part of it is
+<p>A residual edge artefact, after six candidate causes were tested and eliminated &mdash; the most
+direct being to widen the model by <span class="n">1.8&times;</span>, moving the side boundaries far
+enough out that their reflections arrive after the crack echo instead of during it. The artefact did
+not change. Part of it is
 not ours to fix: the array pitch is <span class="n">0.30</span> mm and the no-grating-lobe limit at
 <span class="n">20&deg;</span> steering is <span class="n">0.279</span> mm &mdash; by the research
 team's own criterion, in their own script. A full-amplitude alias of the main beam therefore exists
@@ -328,7 +331,7 @@ hardware decisions.</p>
     that collapses under questioning.</p></div></div>
   <div class="claim"><span class="tag no">Open</span><div>
     <p>Both images carry clutter; neither wall images black.</p>
-    <p>Ours is the cleaner of the two, but a residual edge artefact remains unexplained after five
+    <p>Ours is the cleaner of the two, but a residual edge artefact remains unexplained after six
     candidate causes were tested and eliminated. Part of it is a true grating lobe, set by the array
     pitch and steering angle, and present in <em>both</em> models.</p></div></div>
   <div class="claim"><span class="tag dead">Not attempted</span><div>

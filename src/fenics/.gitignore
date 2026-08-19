@@ -15,6 +15,11 @@ results/**/*.bp
 # ...EXCEPT the ones that cost hours to produce. A forward solve is ~2.4 h; losing one to an
 # untracked working tree already cost this project a full day's work once. ~44 MB each.
 !results/ili_forward/channel_data_*.npz
+# ...except the wide-domain record. That rationale rested on a solve costing hours; on the
+# GPU this one took 12 min, and it backs a NULL result, so 42 MB of history buys nothing.
+# The imaging caches and figures under results/compare/*widedomain* carry the evidence, and
+# the README records the two commands that rebuild it.
+results/ili_forward/channel_data_*_w165_*.npz
 
 # Extracted k-Wave cases: only ~1 min to re-extract, but re-extraction needs data/derrell/,
 # which is itself gitignored bulk. ~24 MB each.
