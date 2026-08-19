@@ -141,7 +141,9 @@ are **linear** min-max. Our clutter sits at 14% of the crack peak - a faint grey
 scale, mid-palette bright on log. Same data.
 
 **Concede honestly:** our absorbing boundary is a first-order dashpot, not a PML, so some energy
-reflects back in. That is the concrete fixable lever and it is costed in the next steps. One
+reflects back in. We built two fixes for it - a correctly shear-matched dashpot and a graded
+sponge - and **measured that neither changed the artifact.** The boundary is not the cause. We
+can say what it is not; we cannot yet say what it is. One
 artifact is definitely not ours: the bright patch at x = 70-85 mm appears in **both** images.
 
 ## 12. What we cannot claim
@@ -170,7 +172,7 @@ Costed next steps, cheapest first:
 
 | step | cost | buys |
 |---|---|---|
-| PML absorbing boundary | days | removes the one artifact candidate that is plausibly ours |
+| Find the real cause of the edge clutter | days | it is the only place we lose to k-Wave; boundary and mesh-coarsening are both ruled out |
 | Ask research team for a defect-free k-Wave run | their time | the cleanest possible clutter-floor comparison |
 | Third and fourth steering angles | ~2.4 h each | strengthens the angle-consistency claim |
 | Convergence / GCI error bars | ~1 day compute | publishable numbers **with uncertainty**, which theirs do not have |

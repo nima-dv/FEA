@@ -289,8 +289,8 @@ artificial edges and come back in as fake echoes.
 
 This matters more than it sounds. A reflecting transducer plane once bounced the front-wall echo
 back and produced a **15% back-wall timing error**; the dashpot took that to 0.19%. Upgrading to
-a PML is the clearest remaining accuracy lever on our side, and it is the one artifact candidate
-that is plausibly ours.
+a PML is the textbook answer when a boundary really is the problem. Establish that it is before
+paying for one: a better absorber cannot fix something the absorber was never causing.
 
 Note the crack faces and outer wall are **not** absorbing - they are traction-free, which is the
 correct physical condition for steel against air.

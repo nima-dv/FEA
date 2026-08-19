@@ -47,6 +47,10 @@ crack-detection sim. Pure Python in Docker.
   Update it whenever the understanding changes.
 - **Pitch talking points, slide by slide:** `PITCH.md`.
 
+**No default FEM configuration is fixed yet.** `legacy boundary` is what every published figure
+uses; `--abc-legacy` and `--sponge-mm` variants are experiments, not defaults. Do not quietly
+adopt one.
+
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
 Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current
 state only, no changelog, no dead text.
