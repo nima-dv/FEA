@@ -57,10 +57,11 @@ def main() -> None:
                     help="draw the raw image only - no wall arcs, no true-notch marker")
     ap.add_argument("--tag", default="", help="suffix for the output figure, so a variant "
                                               "run does not clobber the canonical one")
-    ap.add_argument("--chain", default="legacy", choices=sorted(CHAINS),
-                    help="imaging chain preset (lib/tt_t_image.CHAINS). 'legacy' is the "
-                         "published chain and the default - do not change it if you want "
-                         "to reproduce a figure on disk.")
+    ap.add_argument("--chain", default="faithfulbf", choices=sorted(CHAINS),
+                    help="imaging chain preset (lib/tt_t_image.CHAINS). 'faithfulbf' is the "
+                         "published baseline since 2026-08-19 and matches the default in "
+                         "lib.tt_t_image; every untagged figure on disk uses it. Pass "
+                         "'legacy' only to reproduce the pre-adoption `_legacybf` files.")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
