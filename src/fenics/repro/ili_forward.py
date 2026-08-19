@@ -206,6 +206,17 @@ def main() -> None:
                          "wavelength on a 0.25 mm mesh - BELOW Nyquist - and the rendered "
                          "wavefronts come out beaded with aliasing speckle. Degree 2 gives 9 "
                          "samples per quad, ~4.5 per wavelength.")
+    ap.add_argument("--gpu", action="store_true",
+                    help="run the TIME LOOP on the GPU via cupy/cuSPARSE. Needs the "
+                         "dvfenics:gpu image and --gpus all (use run.ps1 -Gpu). Meshing and "
+                         "assembly stay on the CPU either way: DOLFINx has no native GPU "
+                         "assembly and the stock image ships PETSc without CUDA, but the loop "
+                         "touches neither - it is one SpMV plus elementwise vector work, which "
+                         "is memory-bandwidth bound and measured 23x faster on one consumer "
+                         "card (tools/gpu_probe.py). Results are NOT bit-identical to the CPU "
+                         "path: cuSPARSE reduces in a different order, so expect fp64 round-off "
+                         "differences. Validated against the stored CPU channel data - see "
+                         "tools/gpu_gate.py.")
     ap.add_argument("--abc-legacy", action="store_true",
                     help="use the OLD absorbing boundary: one speed (c_P) on both displacement "
                          "components everywhere in the steel. Wrong wave for a shear method - it "
@@ -479,10 +490,27 @@ def main() -> None:
     b_co = m / dt**2 - c_damp / (2 * dt)
     tm = 2.0 * m / dt**2
 
-    u_old = np.zeros(n_local)
-    u_cur = np.zeros(n_local)
+    # --- optional GPU offload of the time loop -------------------------------------------
+    # Everything above is CPU: meshing, assembly, the boundary vector, the source and
+    # receiver operators. Only the loop moves. `xp` is numpy or cupy, so the loop body below
+    # is identical in both cases and cannot drift between the two paths.
+    xp = np
+    if args.gpu:
+        import cupy as xp                                    # noqa: F811
+        import cupyx.scipy.sparse as xsp
+        Ks = xsp.csr_matrix(Ks)
+        S = xsp.csr_matrix(S)
+        W = xsp.csr_matrix(W)
+        inv_a, b_co, tm = (xp.asarray(a) for a in (inv_a, b_co, tm))
+        dev = xp.cuda.runtime.getDeviceProperties(0)["name"].decode()
+        free, total = xp.cuda.runtime.memGetInfo()
+        print(f"      GPU time loop on {dev}: K on device, "
+              f"{(total-free)/2**30:.2f} of {total/2**30:.1f} GiB used")
+
+    u_old = xp.zeros(n_local)
+    u_cur = xp.zeros(n_local)
     nrec = args.probe_steps if args.probe else nsteps
-    rec = np.zeros((nrec, N_ELEM))
+    rec = xp.zeros((nrec, N_ELEM))
 
     # --- optional wavefield snapshots (for the animations) -------------------------------
     # Stored as discontinuous-Lagrange sample values with their coordinates, NOT as XDMF, so
@@ -517,9 +545,13 @@ def main() -> None:
               f"DG{args.snap_degree} -> {snap_xy.shape[0]} samples/frame "
               f"({snap_xy.shape[0]/ncell:.1f} per cell)")
 
-    def src(n: int) -> np.ndarray:
+    def src(n: int):
+        # The waveform is 256 numbers, so it is built on the host either way and pushed to
+        # the device if needed - the transfer is negligible against a 1.3 GB/step SpMV.
         g = toneburst(n * dt - delays, F0, N_CYCLE)
-        return S @ g if g.any() else None
+        if not g.any():
+            return None
+        return S @ (xp.asarray(g) if args.gpu else g)
 
     t0 = time.time()
     for n in range(2, nrec):
@@ -531,7 +563,9 @@ def main() -> None:
         u_old, u_cur = u_cur, u_new
         rec[n] = W @ u_cur
         if n in snap_set:
-            u_fn.x.array[:u_cur.size] = u_cur
+            # DOLFINx interpolation is a host operation, so pull this frame back. Only a
+            # handful of steps do this, so the copy does not affect the step rate.
+            u_fn.x.array[:u_cur.size] = xp.asnumpy(u_cur) if args.gpu else u_cur
             f_div.interpolate(e_div)
             f_curl.interpolate(e_curl)
             snaps_div.append(f_div.x.array.astype(np.float32).copy())
@@ -540,8 +574,11 @@ def main() -> None:
         # Divergence guard: an explicit scheme past its CFL limit grows geometrically.
         # Check periodically so a marginal dt fails in seconds rather than after an hour.
         if n % 500 == 0:
-            peak = np.abs(u_cur).max()
-            if not np.isfinite(peak) or peak > 1e6 * max(np.abs(rec).max(), 1e-30):
+            # float() forces a device sync on the GPU path. Every 500 steps that is
+            # unmeasurable; doing it per step would serialise the loop and throw the
+            # speedup away.
+            peak = float(xp.abs(u_cur).max())
+            if not np.isfinite(peak) or peak > 1e6 * max(float(xp.abs(rec).max()), 1e-30):
                 raise RuntimeError(
                     f"solution diverging at step {n}: max|u| = {peak:.3e}. "
                     f"dt = {dt*1e9:.4f} ns is above the stability limit - lower CFL.")
@@ -561,10 +598,12 @@ def main() -> None:
         print(f"PROBE: full solve = {nsteps} steps x {per*1e3:.3f} ms = "
               f"{tot/60:.1f} min ({tot/3600:.2f} h) per angle")
         print(f"       3 angles + 1 baseline = {4*tot/3600:.2f} h")
-        print(f"       peak |p| so far {np.abs(rec).max():.4g}")
+        print(f"       peak |p| so far {float(xp.abs(rec).max()):.4g}")
         return
 
     # --- resample onto their 380 MHz time base -------------------------------------------
+    if args.gpu:
+        rec = xp.asnumpy(rec)                # one transfer, ~47 MB, at the end of the solve
     t_ours = np.arange(nrec) * dt
     t_theirs = np.arange(N_SAMP_KWAVE) * DT_KWAVE
     ch = np.empty((N_SAMP_KWAVE, N_ELEM))

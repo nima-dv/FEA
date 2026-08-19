@@ -332,11 +332,11 @@ hardware decisions.</p>
     <p>3-D, complex defect shapes, and speed.</p>
     <p>All 2-D, one notch geometry. The unstructured-mesh advantage argued in section 03 is
     <b>untested</b>. On speed, quote the measurement and not the core count: multi-core gives
-    <span class="n">1.7&times;</span> because the bottleneck is memory bandwidth, while moving
-    the same loop to one consumer GPU gives <span class="n">23&times;</span> for the same reason
-    &mdash; <span class="n">2.6</span> h per angle to <span class="n">6.9</span> min. The GPU path
-    is measured but <b>not yet validated against arrival times</b>, so it is not in
-    production.</p></div></div>
+    <span class="n">1.7&times;</span> because the bottleneck is memory bandwidth, while moving the
+    same loop to one consumer GPU gives about <span class="n">19&times;</span> for the same reason
+    &mdash; <span class="n">2.4</span> h per angle to <span class="n">7.7</span> min, validated
+    against the stored CPU record to <span class="n">1.7e-12</span> samples of arrival-time
+    drift.</p></div></div>
 </div>
 
 <h2 class="col"><span class="num">08</span>Cost and next steps</h2>

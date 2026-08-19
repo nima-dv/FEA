@@ -64,8 +64,11 @@ Two container images: `dvfenics:bf` (CPU, the default) and `dvfenics:gpu` (adds 
 GPU time loop; build with `docker build -f Dockerfile.gpu -t dvfenics:gpu .`, run with
 `./run.ps1 -Gpu`). The GPU path accelerates only the time loop - meshing and assembly stay on
 the CPU, because the official FEniCSx GPU route needs a CUDA-enabled PETSc the stock image does
-not ship. It is measured at 23x but **not adopted**: that needs validation against known
-arrival times, not a round-off comparison.
+not ship. Measured at about **19x** on the production workload (2.4 h -> 7.7 min) and **validated**:
+`tools/gpu_gate.py` scores a GPU run against the stored CPU record on ARRIVAL TIME, not on a
+norm, with thresholds pre-registered. Both tests passed at 1e-12 samples of drift and the imaging
+metrics are identical. Evidence in `results/perf/gpu_gate.txt`. The CPU path stays the default;
+pass `--gpu` to opt in.
 
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
 Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current

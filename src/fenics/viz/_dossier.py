@@ -741,18 +741,23 @@ be got wrong.</p>
 <p>Relevant because any 3-D discussion depends on it, and because two of these numbers were
 estimated first and measured later &mdash; the measurements are what we would plan against.</p>
 <ul>
-<li><strong>The time loop runs 23&times; faster on a GPU, measured.</strong> The hot loop
-touches neither PETSc nor DOLFINx - assembly happens once, then the loop is
-<code>scipy.sparse</code> only - so this needed a <code>cupy</code>/cuSPARSE swap of two lines
-rather than a CUDA-enabled FEM stack. On the production matrix
-(<span class="n">1.47</span> M unknowns, <span class="n">105</span> M nonzeros):
-<span class="n">57.8</span> ms/step at <span class="n">23.2</span> GB/s on the CPU against
-<span class="n">2.51</span> ms/step at <span class="n">534</span> GB/s on one consumer card, so
-<span class="n">2.6</span> hours per angle becomes <span class="n">6.9</span> minutes. It is a
-pure bandwidth ratio, which is also why double precision costs little here. <b>Not yet
-adopted</b> - CPU and GPU agree to <span class="n">2.6e-16</span>, which is round-off from a
-different reduction order and <em>not</em> an accuracy gate; timing is the measurement, so
-adoption needs validation against known arrival times.</li>
+<li><strong>The time loop runs about 19&times; faster on one consumer GPU, measured and
+validated.</strong> The hot loop touches neither PETSc nor DOLFINx - assembly happens once, then
+the loop is <code>scipy.sparse</code> only - so this needed a <code>cupy</code>/cuSPARSE swap of
+two lines rather than a CUDA-enabled FEM stack. On the production problem
+(<span class="n">1.47</span> M unknowns, <span class="n">105</span> M nonzeros)
+<span class="n">2.4</span> hours per angle becomes <span class="n">7.7</span> minutes. It is a
+pure bandwidth ratio, which is also why double precision costs little here despite this card
+running fp64 arithmetic at a small fraction of fp32.
+<br><b>The validation is the part that matters.</b> cuSPARSE reduces in a different order, so the
+GPU path is not bit-identical and never will be - and a solver can agree in amplitude while
+running systematically late, which would be a depth error. So the gate is a <em>timing</em> gate
+with thresholds fixed before the first run. Two tests, both passed: a backend A/B at identical
+flags over <span class="n">8,184</span> steps, and a full-length run scored against the stored CPU
+production record. Arrival-time shift <span class="n">1.7e-12</span> samples against a
+<span class="n">0.01</span> sample threshold, mean shift <span class="n">2e-14</span> so no
+systematic lead or lag, and every imaging metric identical to the published value at every quoted
+digit.</li>
 <li><strong>Parallelism gives 1.71&times;, not the 4&ndash;8&times; a core count suggests.</strong>
 DOLFINx is MPI-parallel and partitions almost perfectly (imbalance
 <span class="n">&le;1.02&times;</span>), but the operation is <em>memory-bandwidth</em> bound:
