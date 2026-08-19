@@ -64,6 +64,10 @@ def main() -> None:
     ap.add_argument("--cracked", required=True)
     ap.add_argument("--healthy", required=True)
     ap.add_argument("--angle", type=float, default=20.0)
+    ap.add_argument("--tag", default="", help="suffix for the output figure. Without "
+                    "it a variant run SILENTLY OVERWRITES the canonical figure that "
+                    "the artifact pages embed, leaving their caption describing a "
+                    "figure that is no longer there. This has happened; use a tag.")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +145,8 @@ def main() -> None:
     fig.colorbar(im, ax=axes.tolist(), label="dB re the CRACKED panel's max", shrink=0.85)
     fig.suptitle(f"Crack minus healthy, {args.angle:+.0f} deg - the wall is common to both runs "
                  f"and cancels coherently", fontsize=11)
-    p = OUT / f"baseline_subtract_{int(args.angle)}deg.png"
+    suffix = f"_{args.tag}" if args.tag else ""
+    p = OUT / f"baseline_subtract_{int(args.angle)}deg{suffix}.png"
     fig.savefig(p, dpi=140, bbox_inches="tight")
     print(f"\nwrote {p}")
 
