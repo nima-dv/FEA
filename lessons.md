@@ -4,10 +4,12 @@ Plain-language explanation of what is being simulated, the equations behind it, 
 approaches differ, and how the comparison is made fair. Written to be understood and presented,
 not to be rigorous.
 
-Scope of this file: **concepts and equations that stay true regardless of results.** Measured
-numbers, current status and open questions live in the branch README
+Scope of this file: **concepts, equations and method that stay true regardless of results.**
+Current status, the head-to-head numbers and open questions live in the branch README
 (`F:\code\readme\rnd-nima-FEA-README.md`); slide-by-slide talking points live in `PITCH.md`.
-Keep it that way - no results, no history, no changelog here.
+Keep it that way - no scoreboard, no history, no changelog here. A few measured numbers do
+appear below, but only where the number *is* the lesson - how fast dispersion falls with element
+order, for instance. Anything that would need editing when a result changes belongs in the README.
 
 ---
 
@@ -87,6 +89,25 @@ $$p = -\lambda_{\text{water}} \nabla \cdot \mathbf{u}$$
 This matters for correctness: the k-Wave sensors record **pressure**, so ours must output
 pressure too, not displacement.
 
+### Impedance - why a reflection happens at all
+
+A wave reflects at an interface because the two materials resist motion differently. The measure
+is **acoustic impedance**:
+
+$$Z = \rho c \qquad\qquad R = \frac{Z_2 - Z_1}{Z_2 + Z_1}$$
+
+$R$ is the fraction of amplitude reflected at normal incidence. Two consequences worth carrying
+around:
+
+- **Water against steel is a big mismatch**, so most of the pulse bounces off the inner wall and
+  only a modest fraction gets in. That is why the front-wall echo is the loudest thing in the
+  record and why the crack echo has to be dug out of its shadow.
+- **A crack is a nearly perfect reflector**, because on the far side there is air: $Z \approx 0$,
+  so $R \approx -1$. This is also why filling a crack with a very soft fictitious solid - as a
+  grid method must - is a smaller sin than it appears. The impedance contrast is still enormous, so
+  $|R|$ is still close to 1 and almost no energy enters the filler to be got wrong. If you want to
+  predict whether an approximation matters, compute the impedance it changes.
+
 ---
 
 ## 3. Why the beam is steered 20 degrees
@@ -110,6 +131,29 @@ That is called **mode conversion**, and it is deliberate. The 45 degree shear be
 outer wall and strikes the crack side-on, where a narrow notch scatters strongly. Hit the same
 crack head-on at 0 degrees and it is nearly invisible - and there is essentially no mode
 conversion at normal incidence, so **0 degrees cannot test this method at all.**
+
+### The array has its own physics: grating lobes
+
+A phased array steers by delaying its elements, and that only works if the elements are close
+enough together. If they are not, the delays that aim the beam at $\theta_s$ *also* bring every
+element back into phase at a second angle, producing a **full-amplitude copy of the main beam**
+pointing somewhere useless. The no-grating-lobe condition, for element pitch $d$, is:
+
+$$d \;\le\; \frac{\lambda}{1 + |\sin \theta_s|}
+\qquad\text{and if violated}\qquad
+\sin \theta_g = \sin \theta_s - \frac{\lambda}{d}$$
+
+Three things follow, and they matter when you are staring at an image wondering what is real:
+
+- The condition tightens as you **steer further** and as **frequency rises** ($\lambda$ falls).
+  A broadband pulse can therefore be grating-lobe-free at its centre frequency and not at its
+  top end.
+- A grating lobe is **not a sidelobe**, and **apodisation cannot remove it.** Tapering element
+  amplitudes suppresses ordinary sidelobes, but at the alias angle every element is back in phase
+  by definition, so a tapered array sums to the same thing there. The only real levers are lower
+  steering angle, lower frequency, or finer pitch - all hardware.
+- It is a property of the **instrument**, not of either simulation. If both models show a bright
+  feature at the alias angle, that is the array being modelled correctly by both.
 
 ### What "TT-T" means
 
@@ -227,7 +271,16 @@ $$\mathbf{u}^{n+1} = 2\mathbf{u}^{n} - \mathbf{u}^{n-1} - \Delta t^{2} \mathbf{M
 **Mass lumping** makes $\mathbf{M}$ diagonal, so $\mathbf{M}^{-1}$ is elementwise division - no linear solve per
 step, just one sparse matrix-vector multiply. Placing the polynomial nodes at
 **Gauss-Lobatto-Legendre (GLL)** points makes the lumped mass exactly diagonal *and* positive,
-which is what keeps a high-order method cheap. We take 163,680 such steps, about 2.4 hours.
+which is what keeps a high-order method cheap.
+
+**There is a real constraint hidden in that sentence.** The trick works because GLL nodes double
+as a quadrature rule: integrate the mass term at the same points where the polynomial is defined
+and the off-diagonal entries vanish *exactly*. That coincidence holds on **quadrilaterals and
+hexahedra**, where the basis is a tensor product of 1-D GLL bases - so a quadrilateral mesh is not
+a stylistic preference, it is what makes the scheme legitimate. On **triangles and tetrahedra**
+above low order there is no such coincidence: naive lumping loses accuracy, and doing it properly
+needs a purpose-built element family with extra interior nodes. If you ever see a high-order
+simplex mesh with a lumped mass, ask which family it uses.
 
 Two rules follow from explicit stepping:
 
@@ -296,35 +349,66 @@ And one exception worth knowing: **past a critical angle, size against the evane
 length rather than the wavelength.** An evanescent boundary layer can be thinner than a single
 cell, and no wavelength-based rule sees it.
 
-**Axial resolution is set by BANDWIDTH, not centre frequency.** So losing the top of the band
-smears everything: a true 4.0 mm notch imaged as 8.07 mm, a weak crack response, and no distinct
-back-wall arc. Fixing it - degree 4 on a finer mesh - is what turned a loss into a win.
+**Axial resolution is set by BANDWIDTH, not centre frequency.** Roughly, the shortest feature
+you can separate along the beam is
 
-Two wrong explanations were eliminated by measurement rather than argument: the **source** was
-never the limit (our emitted pulse is broader than k-Wave's *returned* echo), and the energy is
-**genuinely lost, not merely delayed** (a whole-record measure shows the high band missing, and
-the loss scales with element order - the signature of high-wavenumber numerical dispersion).
+$$\Delta z \;\approx\; \frac{c}{2 B}$$
+
+with $B$ the usable bandwidth - the centre frequency does not appear. So a mesh that quietly
+low-passes your own pulse costs you depth resolution directly: a notch images too deep, the crack
+response weakens, and the back-wall arc smears. Every symptom has one cause, which is why this is
+the single most useful diagnostic pattern in the project.
+
+A related trap when diagnosing it: if the high band is missing, decide whether it was **lost or
+merely delayed** before blaming anything. Energy genuinely destroyed by numerical dispersion
+scales with element order and disappears from a whole-record measure; energy merely delayed is
+still there if you look in a wider window. Those two call for completely different fixes.
 
 ---
 
-## 6. Absorbing boundaries
+## 6. Absorbing boundaries, and the three ways to do them
 
 The simulated domain is finite but the real pipe is not. Without treatment, waves reflect off the
-artificial edges and come back in as fake echoes.
+artificial edges and come back in as fake echoes. There are three standard approaches, and they
+sit on a clear cost/quality ladder - worth knowing all three, because choosing between them is a
+recurring decision.
 
-- **k-Wave uses a PML** (perfectly matched layer): a surrounding region whose equations are
-  modified so waves enter and decay without reflecting. Very effective.
-- **We use a dashpot absorbing boundary condition**: a traction proportional to velocity,
-  $\text{traction} \approx -\rho c \dot{\mathbf{u}}$, applied on the array plane and side walls. It is **first-order** -
-  it absorbs normal incidence well and leaks somewhat at oblique incidence.
+**1. Dashpot (a first-order absorbing boundary condition).** Apply a traction proportional to
+velocity on the boundary, so the boundary behaves like a shock absorber:
 
-This matters more than it sounds. A reflecting transducer plane once bounced the front-wall echo
-back and produced a **15% back-wall timing error**; the dashpot took that to 0.19%. Upgrading to
-a PML is the textbook answer when a boundary really is the problem. Establish that it is before
-paying for one: a better absorber cannot fix something the absorber was never causing.
+$$\text{traction} = -\rho \left[\, c_P (\dot{\mathbf{u}} \cdot \mathbf{n})\,\mathbf{n}
+\;+\; c_S \left(\dot{\mathbf{u}} - (\dot{\mathbf{u}} \cdot \mathbf{n})\,\mathbf{n}\right) \right]$$
+
+Nearly free - it adds one boundary term, and if the boundary is axis-aligned the coefficients stay
+a diagonal vector, so the explicit scheme is unchanged. It is **exact for a plane wave arriving
+head-on** and leaks progressively as incidence becomes oblique. Note it needs the *right speed per
+component*: the normal part of the motion carries the compression wave, the tangential part the
+shear wave, and using one speed for both over-damps whichever it got wrong.
+
+**2. Sponge (graded damping).** Add a damping term that ramps smoothly from zero to strong across
+a band of cells. The point of the ramp is that there is **no impedance step anywhere** for a wave
+to reflect off - a sudden onset of damping is itself a reflector, which defeats the purpose. Also
+nearly free, and it stacks with a dashpot. The counter-intuitive part: **more damping is not
+better.** Past an optimum, the ramp becomes stiff enough to reflect on its own, so a "stronger"
+sponge performs worse. It has an optimum, not a maximum.
+
+**3. PML (perfectly matched layer).** The textbook answer, and what k-Wave uses: a surrounding
+region whose equations are analytically continued into complex coordinates so waves enter and
+decay with essentially no reflection at any angle. Far better than the other two, and far more
+work - it needs extra field variables, its own time integration, and careful tuning.
+
+**The lesson about choosing between them is the useful part.** Absorbing boundaries are a classic
+place to spend effort on the wrong thing, because a bad boundary produces *plausible* artifacts -
+late-arriving energy that looks like structure. So: establish that the boundary really is your
+problem before paying for a PML. A better absorber cannot fix something the absorber was never
+causing, and the cheap options above are enough to answer that question.
+
+It does matter when it is the problem: a reflecting transducer plane once bounced the front-wall
+echo straight back and produced a **15% back-wall timing error**, which a dashpot took to 0.19%.
 
 Note the crack faces and outer wall are **not** absorbing - they are traction-free, which is the
-correct physical condition for steel against air.
+correct physical condition for steel against air. Getting that backwards would be a physics error,
+not a boundary-treatment choice.
 
 ---
 
@@ -348,9 +432,37 @@ Then an image is formed by **Kirchhoff migration**, also called delay-and-sum:
 > receiver traces and add the values. If something really scatters at that pixel, all 128 traces
 > agree and the sum is large. If nothing is there, they disagree and cancel to near zero.
 
-The sum is done on the **analytic signal** (via a Hilbert transform), so it is complex and phases
-add coherently - that is what makes the cancellation work. Transmit travel times come from Snell
-ray shooting; receive travel times from a ray search.
+Written out, the image at pixel $\mathbf{x}$ is a coherent sum over receivers:
+
+$$I(\mathbf{x}) \;=\; \left| \sum_{r} A_r\!\left( t_{\text{tx}}(\mathbf{x}) + t_{\text{rx}}(\mathbf{x}, r) \right) \right|$$
+
+The sum is done on the **analytic signal** $A_r$ (via a Hilbert transform), so it is complex and
+phases add coherently - that is what makes the cancellation work. Transmit travel times come from
+Snell ray shooting; receive travel times from a ray search.
+
+### The imaging chain has its own error sources
+
+Two are worth understanding, because they are easy to mistake for solver problems.
+
+**Sampling and aliasing.** Any resampling step folds content above the new Nyquist frequency back
+into the band, at $f_{\text{alias}} = |f - k f_s|$. Once folded it is indistinguishable from real
+signal and no later filter can remove it - so an anti-alias filter has to come *before* the
+decimation, not after. A band-limited solver and a broadband one are affected differently by the
+same naive resampling, which makes this a genuine source of asymmetry between two models.
+
+**Operator aliasing.** Delay-and-sum sums along a curved surface in the data. Where that surface
+is steep relative to the sample spacing, adjacent contributions stop being coherent and the sum
+picks up streaks instead of cancelling. The standard fix is a filter applied to the migration
+operator itself, and it costs a little resolution - which is why it has an aggressiveness setting
+rather than being simply on.
+
+### The rule that protects the comparison
+
+**Any change to the shared processing must be applied to both datasets.** This sounds obvious and
+is the easiest thing in the project to get wrong, because processing changes are cheap to try and
+each one is individually defensible. The moment a processing choice differs between the two sides,
+the experiment silently stops being a comparison of solvers and becomes a comparison of
+processing - and it will still produce a confident number.
 
 **The crucial move: we run THEIR beamformer, not a reimplementation.** Their imaging code is a
 Python package in the research team's repository, called directly and unmodified on both datasets,
@@ -383,8 +495,24 @@ healthy wall is numerical junk. So the ratio asks "how far does the real crack s
 fake stuff?", and higher is better.
 
 **Absolute amplitudes are NOT comparable between the two solvers** - k-Wave drives a 2e-6
-velocity source, we apply unit traction. Only **within-image ratios** mean anything. This is also
-why comparison panels are normalised to their own maximum, never to a shared one.
+velocity source, we apply unit traction. Only **within-image ratios** mean anything. Processing
+changes can rescale amplitudes too, so raw pixel values are not comparable across imaging
+configurations either.
+
+### Normalisation is a measurement choice, and it can hide the thing you are measuring
+
+The usual fix is to normalise each panel to **its own maximum**. That is right for asking "is the
+crack visible in this image?", and it is exactly **wrong** for asking "which image has less
+clutter?" - because it silently rescales the difference away. Two panels with very different
+clutter render identically.
+
+To compare clutter across images you need a **shared scale referenced to something physical in
+each image.** Referencing each panel to *its own crack peak* works: it is the same quantity every
+contrast metric already uses, so the picture and the numbers finally measure the same thing.
+
+The related trap: **do not ask anyone to judge a small change by eye.** A change of well under a
+decibel is real and measurable and simply invisible in a heat map. If a claim is at that scale, it
+belongs in a profile plot or a table, and a figure that appears to show it is overselling.
 
 ### Two analysis traps that produced confident wrong numbers here
 
@@ -397,7 +525,59 @@ why comparison panels are normalised to their own maximum, never to a shared one
 
 ---
 
-## 9. Glossary
+## 9. How the experiments are designed, and why
+
+The physics above is only half the method. These are the experimental patterns this project runs
+on - worth understanding separately, because they are what turn "two pictures" into evidence, and
+they transfer to any comparison of two models.
+
+**Change one thing, inside your own model.** The competitor's code is not yours to modify, but
+yours is. So if you claim your geometry is why you win, test it by making *your own* geometry
+worse - staircase your own wall onto their grid, fill your own crack with their filler material -
+and measure what it costs. That converts an argument you cannot settle into a measurement you can.
+It is also the only honest way to attack your own favourite explanation.
+
+**Write the prediction and the falsifier down first.** Before running the test, record what the
+result must be for your explanation to survive, and what result would kill it. Without that, any
+outcome can be narrated as support after the fact - and it will be, because the narration is
+easier than the alternative. A prediction that landed inside a range recorded in advance is worth
+far more than the same number produced and then explained.
+
+**Replicate on a mirrored configuration.** Here that means flipping the steering angle. The
+specimen is symmetric and the notch is on-axis, so anything that changes materially between $+20$
+and $-20$ degrees is telling you about the *model*, not the specimen. It is the cheapest
+independent test available, and a result that fails to replicate across it was never a result.
+
+**Run a null test whenever a change carries a passenger.** If enabling the thing you care about
+also switches something else - a different compute engine, a different code path, a different
+library - first run the new path with your feature *off*. It must reproduce the old answer. If it
+does not, the two effects are confounded and every number that follows is uninterpretable.
+
+**Gate on reproduction before trusting a new arm.** Re-run the *unchanged* configuration and
+require it to reproduce the stored result exactly. If the baseline has moved, the new arm's number
+means nothing, and you would rather learn that from a check than from a conclusion.
+
+**Sweep the arbitrary choices.** Every image metric has knobs no physics fixes: a brightness
+threshold, a region-of-interest width, a guard distance. Any of them can be chosen to favour any
+conclusion. So sweep them all and require the ordering to be unanimous, or nearly so, before
+quoting it. **A claim that flips with the threshold is not a claim.** And pin the definition in
+code - a metric that lives only in a report will drift.
+
+**Simulate the defect-free case.** Run the identical specimen with no defect at all. Then every
+feature that appears is numerical *by construction*, which is the only clean way to measure an
+artifact floor. It also converts "is that bright patch the crack?" from an opinion into a
+subtraction.
+
+**Keep any processing change symmetric.** See section 7 - it is important enough to appear twice.
+
+**Treat a negative result as a result.** Eliminating a candidate cause is progress: it is what
+stops you spending weeks building an expensive fix for something that was never the problem. Most
+of the candidate explanations tested in this project were eliminated, and the eliminations are
+more valuable than the survivors, because each one narrows where the real answer can be.
+
+---
+
+## 10. Glossary
 
 | term | meaning |
 |---|---|
@@ -422,3 +602,13 @@ why comparison panels are normalised to their own maximum, never to a shared one
 | **GLL** | Gauss-Lobatto-Legendre node placement; makes lumped mass exactly diagonal and positive |
 | **Spectral element** | high-order FEM on GLL nodes; low dispersion at moderate cost |
 | **Pseudospectral (PSTD)** | k-Wave's method: uniform grid, derivatives via FFT |
+| **Impedance** | $Z = \rho c$; the mismatch between two materials sets how much reflects |
+| **Axial resolution** | smallest separable feature along the beam, $\approx c/2B$; set by bandwidth, not centre frequency |
+| **Grating lobe** | full-amplitude copy of the steered beam at a second angle when pitch is too coarse; not removable by apodisation |
+| **Apodisation** | tapering element amplitudes across the aperture; suppresses ordinary sidelobes only |
+| **Analytic signal** | complex signal from a Hilbert transform; lets delay-and-sum add phases coherently |
+| **Aliasing** | content above the sampling Nyquist folded irreversibly into the band; filter *before* resampling, never after |
+| **Operator aliasing** | streak clutter from summing along a steep migration surface; fixed by filtering the operator itself |
+| **Sponge layer** | graded damping band used as a cheap absorbing boundary; has an optimum strength, not a maximum |
+| **Pre-registration** | recording the prediction and the falsifier before running the test |
+| **Null test** | running a new code path with the new feature disabled, to prove it changes nothing by itself |
