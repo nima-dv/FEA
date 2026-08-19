@@ -18,10 +18,11 @@ The right-hand panel is the honest part: a 0.8 dB change is real but sub-visual 
 so it is also plotted as a curve, where it is unambiguous.
 
 RUN
-  ./run.ps1 python3 viz/artifact_reduction.py
+  ./run.ps1 python3 viz/artifact_reduction.py [--angle 20 | --angle -20]
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -34,9 +35,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[0].parent))
 from lib.tt_t_image import FROZEN  # noqa: E402
 
 CMP = Path(__file__).resolve().parents[1] / "results" / "compare"
-OUT = Path(__file__).resolve().parents[1] / "results" / "viz" / "artifact_reduction.png"
+VIZ = Path(__file__).resolve().parents[1] / "results" / "viz"
 
 # (npz tag, key inside that npz, label). Order = the order the treatments were applied.
+# Both angles carry the same three arms; only +20 also has a standalone shear-matched run,
+# which is not needed here because the cumulative end state is what the figure compares.
 ARMS = [
     ("_legacybf", "FEM_img", "Starting point"),
     ("", "FEM_img", "+ imaging anti-alias"),
@@ -57,17 +60,24 @@ def wall_masks(x, z):
     return in_wall, crack, t_x
 
 
-def load(tag, key):
-    d = np.load(CMP / f"images_20{tag}.npz")
+def load(tag, key, angle):
+    d = np.load(CMP / f"images_{angle}{tag}.npz")
     if key not in d.files:
-        raise SystemExit(f"images_20{tag}.npz has no '{key}'. keys: {d.files}")
+        raise SystemExit(f"images_{angle}{tag}.npz has no '{key}'. keys: {d.files}")
     return np.nan_to_num(d[key]), d["x"], d["z"]
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--angle", type=int, default=20,
+                    help="steering angle; reads images_<angle><tag>.npz (default 20)")
+    args = ap.parse_args()
+    angle = args.angle
+    out = VIZ / f"artifact_reduction_{'p' if angle >= 0 else 'm'}{abs(angle)}deg.png"
+
     panels = []
     for tag, key, label in ARMS:
-        img, x, z = load(tag, key)
+        img, x, z = load(tag, key, angle)
         in_wall, crack, t_x = wall_masks(x, z)
         pk = img[crack].max()
         db = 20 * np.log10(np.maximum(img / pk, 1e-9))       # dB re THIS panel's crack peak
@@ -124,11 +134,11 @@ def main() -> None:
     ax.legend(fontsize=8.5, frameon=False, loc="upper left", ncol=3,
               borderaxespad=0.2, columnspacing=1.6)
 
-    fig.suptitle("Artifact reduction at +20 deg - one shared scale, each panel referenced to "
-                 "its own crack peak", fontsize=11.5, y=0.985)
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, bbox_inches="tight", facecolor="white")
-    print(f"wrote {OUT}  ({OUT.stat().st_size/1e3:.0f} kB)")
+    fig.suptitle(f"Artifact reduction at {angle:+d} deg - one shared scale, each panel "
+                 "referenced to its own crack peak", fontsize=11.5, y=0.985)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, bbox_inches="tight", facecolor="white")
+    print(f"wrote {out}  ({out.stat().st_size/1e3:.0f} kB)")
 
     # Report the numbers the figure is claiming, so the caption cannot drift from it.
     print("\nclutter RMS over the whole wall, crack column excluded [dB re crack peak]:")

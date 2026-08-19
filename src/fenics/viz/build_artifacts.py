@@ -97,7 +97,8 @@ IMG = {
     # levels are not comparable between imaging chains. This one puts every panel on one
     # shared scale referenced to its own crack peak, and carries the sub-visual part as a
     # curve. Do not substitute a stock compare_*.png here.
-    "artred": "viz/artifact_reduction.png",
+    "artred": "viz/artifact_reduction_p20deg.png",
+    "artred_m20": "viz/artifact_reduction_m20deg.png",
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
     # through both critical angles, rather than one normal-incidence coefficient.
