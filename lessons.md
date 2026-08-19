@@ -595,6 +595,15 @@ subtraction.
 
 **Keep any processing change symmetric.** See section 7 - it is important enough to appear twice.
 
+**Validate a port on the quantity you measure, not on a norm.** Moving a solver to different
+hardware, a different library or a different precision will not reproduce the old answer bit for
+bit - a sparse library that sums in a different order differs at round-off from the first step,
+and that is not a bug. So "the vectors agree to seven digits" is the wrong check. Ask what the
+simulation is actually *for*, and gate on that. Here the answer is an arrival time, so the gate
+measures arrival-time drift by cross-correlation - because a solver can agree closely in
+amplitude and still run systematically late, and late is a depth error. Pick the sensitive
+measure, too: a first-break pick moves in whole samples and would hide sub-sample drift entirely.
+
 **Treat a negative result as a result.** Eliminating a candidate cause is progress: it is what
 stops you spending weeks building an expensive fix for something that was never the problem. Most
 of the candidate explanations tested in this project were eliminated, and the eliminations are

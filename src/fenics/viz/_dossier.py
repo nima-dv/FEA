@@ -738,8 +738,38 @@ be got wrong.</p>
 
 <h2 class="col"><span class="num">14</span>What actually limits the speed</h2>
 <div class="col">
-<p>Relevant because any 3-D discussion depends on it, and because two of these numbers were
+<p>Relevant because any 3-D discussion depends on it, and because several of these numbers were
 estimated first and measured later &mdash; the measurements are what we would plan against.</p>
+
+<h3>Why the time loop was portable at all</h3>
+<p>One explicit step is a single sparse matrix-vector product plus a few elementwise vector
+operations. Count arithmetic against bytes and the ratio is lopsided: about two floating-point
+operations per matrix entry, but twelve bytes fetched to get that entry. The kernel is
+<strong>memory-bandwidth bound</strong> &mdash; it spends its life waiting for memory &mdash; and
+that one fact predicts everything else here, including why adding CPU cores barely helps and why
+a GPU helps enormously.</p>
+<p>It also made the port small. The loop touches neither PETSc nor DOLFINx: the framework
+assembles the operators once and the loop is then <code>scipy.sparse</code> alone. So this was a
+two-line swap to <code>cupy</code>/cuSPARSE, not a CUDA-enabled finite-element stack. Worth
+knowing, because the framework's own GPU route is <em>blocked</em> &mdash; its CUDA assembly
+extension cannot be used with the standard container distributions, which ship the linear-algebra
+backend without CUDA support. We verified that on our own image rather than taking the
+documentation's word for it.</p>
+
+<h3>Validating a different backend</h3>
+<p>A GPU result is <strong>not</strong> bit-identical to a CPU one and never will be: the sparse
+library sums in a different order, so the two differ at round-off from the first step. The
+tempting check &mdash; compare the vectors, see a small number, declare victory &mdash; is the
+wrong check. A solver can agree to one part in a million in amplitude and still run
+systematically <em>late</em>, and in this measurement late is a depth error.</p>
+<p>So the gate scores <strong>arrival time</strong>, by sub-sample cross-correlation rather than a
+threshold crossing (a first-break pick jumps a whole sample as soon as noise nudges it, which
+would hide exactly the drift being tested for). Thresholds were fixed before the first run. Two
+tests passed: a backend A/B at identical settings, and a full-length run scored against the stored
+CPU record &mdash; <span class="n">1.7e-12</span> samples of drift against a
+<span class="n">0.01</span> sample threshold, mean drift <span class="n">2e-14</span> so no
+systematic lead or lag, and every imaging metric identical to the published value at every quoted
+digit.</p>
 <ul>
 <li><strong>The time loop runs about 19&times; faster on one consumer GPU, measured and
 validated.</strong> The hot loop touches neither PETSc nor DOLFINx - assembly happens once, then
@@ -779,8 +809,21 @@ arrival times before adoption, since a larger step also raises temporal dispersi
 accuracy is the entire point of this simulation.</li>
 </ul>
 <p>For scale: the production configuration is <span class="n">1.47</span> million unknowns,
-<span class="n">163,680</span> steps at <span class="n">0.366</span> ns, about
-<span class="n">2.4</span> hours per steering angle on one core, no licence.</p>
+<span class="n">163,680</span> steps at <span class="n">0.366</span> ns &mdash; about
+<span class="n">2.4</span> hours per steering angle on one CPU core, or
+<span class="n">7.7</span> minutes on a consumer GPU, with no licence either way.</p>
+<p><strong>What that changes, and what it does not.</strong> Work deferred purely on cost &mdash;
+more steering angles, a crack-size sweep, convergence error bars, a much wider domain to remove
+the absorbing boundary entirely &mdash; moves from days to minutes, and those are exactly the
+experiments that would firm up the claims this document marks as bounded. It changes no result:
+the GPU reproduces the CPU numbers, checked rather than assumed.</p>
+<p>It also does <strong>not</strong> unlock 3-D, and it is worth being precise about why. 3-D is
+limited by <em>memory</em>, not speed: storing this operator at this element order in three
+dimensions needs far more than a consumer card holds. The route runs through a matrix-free
+solver, which stores no operator at all and recomputes element contributions instead &mdash;
+trading bandwidth for arithmetic, which is a bad trade on a CPU and a good one on a GPU. So
+matrix-free and 3-D are one project, not two, and the GPU is its precondition rather than its
+substitute.</p>
 </div>
 
 <h2 class="col"><span class="num">15</span>Slide map</h2>

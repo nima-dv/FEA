@@ -34,7 +34,8 @@ def body(img: dict, c5) -> str:
   <p><strong>Continue, with narrow scope.</strong> The commercial case is not decibels &mdash; it
   is that crack <em>sizing</em> is what an inspection product sells, and we size to
   <span class="n">&minus;6.8%</span> where the reference model reads
-  <span class="n">&minus;13%</span>. No licence cost, one workstation core, 2.4 hours a run.</p>
+  <span class="n">&minus;13%</span>. No licence cost, one developer workstation, and
+  <span class="n">7.7</span> minutes a run on its GPU.</p>
   <p>We would <em>not</em> fund a 3-D programme on this evidence. That is orders of magnitude
   beyond what has been demonstrated.</p>
 </div>
@@ -300,8 +301,10 @@ hardware decisions.</p>
     is not a result.</p></div></div>
   <div class="claim"><span class="tag yes">Win</span><div>
     <p><b>Cost and licensing.</b></p>
-    <p>No licences. One CPU core, <span class="n">2.4</span> hours per beam angle, on a developer
-    workstation. Every figure here regenerates from committed code.</p></div></div>
+    <p>No licences, one developer workstation. <span class="n">2.4</span> hours per beam angle
+    on a single CPU core, or <span class="n">7.7</span> minutes on the same machine's GPU &mdash;
+    validated to agree with the CPU result to <span class="n">1.7e-12</span> samples of
+    arrival-time drift. Every figure here regenerates from committed code.</p></div></div>
 </div>
 
 <h2 class="col"><span class="num">07</span>What we are not claiming</h2>
@@ -346,9 +349,12 @@ hardware decisions.</p>
 <thead><tr><th>Item</th><th class="num">Cost</th></tr></thead>
 <tbody>
 <tr><td class="row-label">Software licences</td><td class="num fem">none</td></tr>
-<tr><td class="row-label">One production simulation, one beam angle</td>
-  <td class="num">~2.4 h, 1 CPU core</td></tr>
-<tr><td class="row-label">Hardware</td><td class="num">one developer workstation</td></tr>
+<tr><td class="row-label">One production simulation &mdash; on one CPU core</td>
+  <td class="num">~2.4 h</td></tr>
+<tr><td class="row-label">The same run on the workstation's GPU</td>
+  <td class="num fem">7.7 min (~19&times;)</td></tr>
+<tr><td class="row-label">Hardware</td>
+  <td class="num">one developer workstation, consumer GPU</td></tr>
 </tbody>
 </table>
 </div>
@@ -358,26 +364,40 @@ hardware decisions.</p>
 <thead><tr><th>Step</th><th class="num">Cost</th><th>What it delivers</th></tr></thead>
 <tbody>
 <tr><td class="row-label"><b>A defect geometry a grid handles badly</b></td>
-  <td class="num">~2.4 h</td>
+  <td class="num fem">~8 min</td>
   <td><b>Do this first.</b> A hole, or an off-axis or branched crack. It is the one place the
   method difference should be decisive rather than incremental, and it is currently our
   weakest-evidenced claim.</td></tr>
-<tr><td class="row-label">A third and fourth beam angle</td><td class="num">~2.4 h each</td>
+<tr><td class="row-label">A third and fourth beam angle</td><td class="num fem">~8 min each</td>
   <td>Takes angle behaviour from two points to four and settles whether the sizing win is general
-  or specific to <span class="n">+20&deg;</span>.</td></tr>
-<tr><td class="row-label">Convergence error bars</td><td class="num">~1 day</td>
+  or specific to <span class="n">+20&deg;</span>. The reference team's archive already holds
+  runs at 0, &plusmn;10, &plusmn;20 and &plusmn;30 degrees.</td></tr>
+<tr><td class="row-label">Convergence error bars</td><td class="num fem">~1 h</td>
   <td>Turns the contrast floor into a number with stated uncertainty. The reference work has none,
   so this is a differentiator rather than diligence.</td></tr>
-<tr><td class="row-label">Crack-size sweep</td><td class="num">~2.4 h each</td>
+<tr><td class="row-label">Crack-size sweep</td><td class="num fem">~8 min each</td>
   <td>Sizing accuracy versus true depth &mdash; the curve a customer actually buys.
   <b>Needs one run from the research team</b> at a second crack size to stay a
   head-to-head.</td></tr>
-<tr><td class="row-label">3-D feasibility</td><td class="num">not yet</td>
-  <td>Scope only after a solver speed-up. Do not fund from this evidence.</td></tr>
+<tr><td class="row-label">3-D feasibility</td><td class="num">weeks, then scope</td>
+  <td>Blocked on memory, not speed: storing the operator in 3-D at this element order needs far
+  more than a consumer card holds. The route is a matrix-free solver, which stores no operator at
+  all and only makes sense on a GPU. Do not fund 3-D from this evidence.</td></tr>
 </tbody>
 </table>
 </div>
 <div class="col">
+<h3>What the speed-up does and does not change</h3>
+<p>Moving the solver's time loop to the workstation's GPU took a production run from
+<span class="n">2.4</span> hours to <span class="n">7.7</span> minutes. Every cost in the table
+above is a GPU figure because of it, and work we had been deferring on cost grounds &mdash; more
+beam angles, a crack-size sweep, convergence error bars &mdash; is now minutes rather than days.
+That is the practical reason to keep going: the next round of evidence is cheap.</p>
+<p>It changes no result. The GPU produces the same numbers as the CPU, and we checked that
+properly rather than assuming it: the two agree to <span class="n">1.7e-12</span> of a sample in
+arrival time over a full-length run, and every imaging metric is identical. It also does
+<em>not</em> unlock 3-D, which is limited by memory rather than speed.</p>
+
 <h3>The one thing we would ask of the research team</h3>
 <p>A single extra k-Wave run at settings they already use &mdash; a defect-free wall, or a second
 crack size. It is a parameter change in a script they run routinely, and it converts two of our
