@@ -102,8 +102,25 @@ IMG = {
     # Was toys/fluid_solid.py's mode_conversion.png; toys/ is gone. validation/zoeppritz.py
     # covers the same physics better - angle-resolved against the exact fluid-solid system
     # through both critical angles, rather than one normal-incidence coefficient.
+    # A single held frame, for a reader who wants to study the mode conversion rather than
+    # watch it go by. t31 us is late enough that the notch scatter has separated from the
+    # outer-wall reflection.
+    "wave_late": "viz/wavefield_snap_p20deg_t31p0us.png",
     "zoep": "zoeppritz/amplitude.png",
+    # The two supporting Zoeppritz panels. "angles" is the one that VERIFIES Snell rather
+    # than assuming it; "error" is where the honest limitation lives (evanescent phase).
+    "zoep_ang": "zoeppritz/angles.png",
+    "zoep_err": "zoeppritz/error.png",
     "pao": "cavity_scattering/dscf_vs_exact.png",
+    # Directivity is the harder scattering test than forward amplitude - it is sensitive to
+    # the cavity boundary condition, which is the same condition the production notch uses.
+    "pao_dir": "cavity_scattering/directivity_vs_exact.png",
+    "pao_wf": "cavity_scattering/wavefield_ka3.0.png",
+    # Boundary-variant comparisons, un-annotated per the twin rule. Included in the dossier
+    # WITH the caveat that a 0.8 dB change is below what a per-panel-normalised heat map can
+    # show - the quantitative figure carries that claim, not these.
+    "bnd_clean": "compare/compare_p20deg_boundary_nooverlay.png",
+    "healthy_clean": "compare/compare_p20deg_healthy_boundary_nooverlay.png",
 }
 
 CSS = """
@@ -221,6 +238,13 @@ td.num,th.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-a
 
 /* figures */
 figure{margin:28px 0 34px; max-width:var(--band)}
+/* two figures side by side, still bounded by the single content width */
+.figrow{
+  display:grid; grid-template-columns:1fr 1fr; gap:22px;
+  max-width:var(--band); margin:28px 0 34px;
+}
+.figrow figure{margin:0; max-width:none}
+@media (max-width:720px){ .figrow{grid-template-columns:1fr} }
 figure img{width:100%; height:auto; display:block; background:var(--surface); border:1px solid var(--rule)}
 figcaption{font-size:13.5px; color:var(--ink-soft); margin-top:11px; max-width:var(--band)}
 figcaption b{color:var(--ink); font-weight:650}
