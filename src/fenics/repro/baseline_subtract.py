@@ -101,7 +101,7 @@ def main() -> None:
     res = {}
     for label, ch in (("cracked", ca), ("healthy", cb), ("difference", diff)):
         img, x, z = tt_t_image(bf, ch, dta, args.angle, dict(FROZEN), verbose=False)
-        m = image_metrics(img, x, z, dict(FROZEN))
+        m = image_metrics(img, x, z, dict(FROZEN), angle_deg=args.angle)
         res[label] = dict(img=img, x=x, z=z, m=m)
         print(f"  {label:<11} notch-ROI peak {m['crack_peak']:.4g}  "
               f"at x {m['crack_x_mm']:.2f} mm  extent {m['notch_extent_mm']:.2f} mm  "

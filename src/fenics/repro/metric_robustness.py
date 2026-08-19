@@ -23,10 +23,14 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from lib.tt_t_image import FROZEN  # noqa: E402
+from lib.tt_t_image import (EDGE_Z_BAND, FROZEN,  # noqa: E402
+                            edge_clutter)
 
 OUT = Path(__file__).resolve().parents[1] / "results" / "compare"
 NOTCH_X, NOTCH_DEPTH = 38.25, 4.0
+# Steering angle of the images being analysed. main() sets it from --angle; it only feeds
+# lib.tt_t_image.edge_clutter, whose band mirrors for negative steering.
+ANGLE_DEG = 20.0
 TRUE_TIP_Z, TRUE_OD_Z = 25.525, 29.525          # notch spans this radial band on axis
 
 
@@ -45,8 +49,11 @@ def measure(img, x, z, thresh, guard, halfwidth, col_halfwidth):
     hit = np.where(col > thresh * pk)[0]
     ext = (z[hit.max()] - z[hit.min()]) if hit.size else np.nan
     rms = float(np.sqrt((clutter ** 2).mean()))
-    return dict(x=float(x[i[0]]), z=float(z[i[1]]), ext=float(ext), pk=float(pk),
-                cnr=float(20 * np.log10(pk / rms)))
+    out = dict(x=float(x[i[0]]), z=float(z[i[1]]), ext=float(ext), pk=float(pk),
+               cnr=float(20 * np.log10(pk / rms)))
+    # Same pinned edge-clutter numbers as compare_images, from the same function.
+    out.update(edge_clutter(img, x, z, float(pk), angle_deg=ANGLE_DEG))
+    return out
 
 
 def main() -> None:
@@ -56,6 +63,8 @@ def main() -> None:
                                              "variant comparison can be swept too")
     args = ap.parse_args()
 
+    global ANGLE_DEG
+    ANGLE_DEG = float(args.angle)
     d = np.load(OUT / f"images_{args.angle}{args.tag}.npz")
     x, z = d["x"], d["z"]
     labels = [k[:-4] for k in d.files if k.endswith("_img")]
@@ -105,6 +114,26 @@ def main() -> None:
         print(f"{g:<12.1f}" + "".join(f"{vals[l]:12.1f}" for l in labels) + f"{w:>10}")
     print(f"  -> k-Wave higher at {cnr_win.count('k-Wave')}/{len(cnr_win)} guard distances\n"
           if two_way else "  -> tally omitted: N-way run, read the winner column\n")
+
+    # --- 4. edge clutter, both pinned definitions --------------------------------------
+    # Not a sweep: these are FIXED definitions (see lib/tt_t_image.edge_clutter). They are
+    # printed here so the robustness run and the head-to-head quote the same numbers.
+    print(f"EDGE CLUTTER [dB re each image's own crack peak], lower = cleaner")
+    print(f"{'definition':<34}" + "".join(f"{l:>12}" for l in labels)
+          + f"{'FEM-kWave':>12}")
+    edge = {l: measure(imgs[l], x, z, 0.25, 6.0, 1.5, 0.4) for l in labels}
+    xb = edge[labels[0]]["edge_x_band"]      # mirrored already if the steering is negative
+    for key, name in (("edge_p95_db", f"x{xb[0]:.1f}-{xb[1]:.1f} "
+                                      f"z{EDGE_Z_BAND[0]:.0f}-{EDGE_Z_BAND[1]:.0f} p95 "
+                                      f"PINNED"),
+                      ("edge_rms_db", f"x{xb[0]:.1f}-{xb[1]:.1f} "
+                                      f"all-z RMS (variant)")):
+        row = "".join(f"{edge[l][key]:12.2f}" for l in labels)
+        exc = (f"{edge['FEM'][key] - edge['k-Wave'][key]:+12.2f}"
+               if two_way and "FEM" in edge and "k-Wave" in edge else f"{'-':>12}")
+        print(f"{name:<34}{row}{exc}")
+    print("  -> positive excess = FEM dirtier. The two definitions DISAGREE in sign;\n"
+          "     see lib/tt_t_image.edge_clutter for every definition measured.\n")
 
     # --- verdict -----------------------------------------------------------------------
     n = len(ext_win) + len(pos_win)

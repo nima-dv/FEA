@@ -8,14 +8,17 @@ attributable to the forward solver rather than to imaging choices.
 TT-T = transmit takes a HALF-SKIP off the OD, receive is DIRECT; both legs are shear,
 mode-converted at the ID. This is the mode their published `imgz_TT_T` figures use.
 
-Pipeline, exactly as their beamformingscript does it:
-    decimate to ~2x the max frequency (factor 23 -> 16.52 MHz)
+Pipeline (the `legacy` chain, which every published figure uses). NOTE: the claim that
+this is "exactly as their beamformingscript does it" was checked on 2026-08-19 and is
+WRONG on three counts - see CHAINS below, and the `faithfulbf` preset that closes them:
+    decimate to ~2x the max frequency (factor 23 -> 16.52 MHz; THEIRS is 3x -> 15)
     sparse receive aperture: every 2nd element (128 of 256)
-    bandpass 0.6-1.4 f0, with dt in MICROSECONDS and cutoffs in MHz
+    bandpass 0.6-1.4 f0, with dt in MICROSECONDS and cutoffs in MHz (THEIRS has none)
     Hilbert -> complex64, so the delay-and-sum is coherent-complex
     transmit TOF : polar_wave_ray_pipe_two_walls_reflect (Snell ray shooting)
     receive TOF  : omnidirectional_ray_pipe_one_wall
-    Kirchhoff migration with the 60/80 deg angle filter that TT-T uses (TT and LL do not)
+    Kirchhoff migration with the 60/80 deg angle filter that TT-T uses (TT and LL do not),
+        and NO operator antialias, where THEIRS passes antialias=0.5
 
 ONE DECLARED SUBSTITUTION: their receive TOF (`omnidirectional_fermat_pipe_one_wall`)
 raises NotImplementedError for any engine other than 'cuda'. We use the ray-shooting
@@ -68,22 +71,54 @@ def params_from_kwave(d) -> dict:
     )
 
 
+# --- imaging-chain presets ------------------------------------------------------------
+# `legacy` IS THE DEFAULT AND MUST STAY BIT-IDENTICAL. Every published figure and number
+# on disk was made with it, so it is frozen: stride decimation from 2*f0 (factor 23),
+# engine="numpy", no operator antialias, bandpass on.
+#
+# `faithfulbf` is what the research team's OWN beamforming_script_simulation.py passes,
+# which this module had drifted from on three counts (measured 2026-08-19):
+#   dec_from  their line 197-199 sets max_freq = 3*f0, so their factor is 15, not our 23.
+#   antialias their line 698/709 (the imgz_TT_T calls) pass antialias=0.5. We passed
+#             nothing. antialias is the Lumley-Claerbout-Bevc migration-OPERATOR
+#             anti-alias, and mig/_kirchhoff.py:290-291 raises NotImplementedError for
+#             engine="numpy", so the engine has to move with it.
+#   bandpass  their simulation script has NO bandpass. Ours came from their
+#             experimental-data script (beamforming_script_experimental.py:233).
+# `nobandpass` = faithfulbf with that last difference closed too. Split out because
+# removing a bandpass can move sizing, so it needs its own threshold sweep.
+CHAINS = dict(
+    legacy=dict(dec_from=2.0, engine="numpy", antialias=0.0, bandpass=True),
+    faithfulbf=dict(dec_from=3.0, engine="numba", antialias=0.5, bandpass=True),
+    nobandpass=dict(dec_from=3.0, engine="numba", antialias=0.5, bandpass=False),
+    # null check for the engine swap: numba must equal numpy when antialias is off.
+    numbanull=dict(dec_from=2.0, engine="numba", antialias=0.0, bandpass=True),
+)
+
+
 def tt_t_image(bf, channel_data: np.ndarray, dt: float, angle_deg: float,
-               params: dict | None = None, verbose: bool = False):
-    """channel_data (n_t, n_elem) time-major -> (|image|, x_ax_mm, z_ax_mm)."""
+               params: dict | None = None, verbose: bool = False,
+               chain: str | dict = "legacy"):
+    """channel_data (n_t, n_elem) time-major -> (|image|, x_ax_mm, z_ax_mm).
+
+    `chain` selects an entry of CHAINS (or is a dict of the same shape). It defaults to
+    "legacy", which is the published chain, unchanged.
+    """
     p = dict(FROZEN if params is None else params)
     f0 = p["f0"]
     n_elem = p["n_elem"]
+    c = dict(CHAINS[chain] if isinstance(chain, str) else chain)
 
     # --- decimate + sparse receive + bandpass + analytic signal ------------------------
-    decimate = max(1, int(np.floor((1 / (2 * 2 * f0)) / dt)))
+    decimate = max(1, int(np.floor((1 / (2 * c["dec_from"] * f0)) / dt)))
     dt_d = decimate * dt
     CH = channel_data[::decimate, :n_elem].T.copy()[np.newaxis, ...]
     dt_us = dt_d * 1e6
     sparse = np.arange(0, n_elem, 2)
     CH = CH[:, sparse, :]
     f0_mhz = f0 * 1e-6
-    CH = bf.utils.bandpass(CH, 0.6 * f0_mhz, 1.4 * f0_mhz, dt=dt_us, axis=-1)
+    if c["bandpass"]:
+        CH = bf.utils.bandpass(CH, 0.6 * f0_mhz, 1.4 * f0_mhz, dt=dt_us, axis=-1)
     inp = hilbert(CH).astype(np.complex64)
 
     # --- geometry ---------------------------------------------------------------------
@@ -96,8 +131,10 @@ def tt_t_image(bf, channel_data: np.ndarray, dt: float, angle_deg: float,
     standoff_mm = r_id_mm + z_cm
     thickness_mm = r_od_mm - r_id_mm
     if verbose:
-        print(f"    decimate {decimate}, fs {1/dt_d/1e6:.2f} MHz, rx {sparse.size}, "
-              f"standoff {standoff_mm:.3f} mm")
+        print(f"    chain {chain if isinstance(chain, str) else 'custom'}: decimate "
+              f"{decimate}, fs {1/dt_d/1e6:.2f} MHz, rx {sparse.size}, "
+              f"bandpass {'on' if c['bandpass'] else 'OFF'}, engine {c['engine']}, "
+              f"antialias {c['antialias']}, standoff {standoff_mm:.3f} mm")
 
     # --- imaging grid: their wavelength-driven TT grid ---------------------------------
     max_tx_f = f0 + 0.5 * (0.6 * f0)                       # 5.2 MHz
@@ -127,16 +164,87 @@ def tt_t_image(bf, channel_data: np.ndarray, dt: float, angle_deg: float,
         output_rays=False, output_rayangles=True, verbose=False)
 
     angle_filter, _ = bf.utils.angle_filter_migration(361, angle_pass=60, angle_cut=80)
+    # antialias is only passed when non-zero: `legacy` must reach their function with the
+    # exact same argument list it always did.
+    extra = {"antialias": c["antialias"]} if c["antialias"] else {}
     img = bf.mig.kirchhoff_from_tof(
         inp, np.asarray(trav_src) * 1e6, np.asarray(trav_rec) * 1e6, dt=dt_us,
         angles_src=np.asarray(angs_src), angles_rec=np.asarray(angs_rec),
-        angle_filter=angle_filter, engine="numpy")
+        angle_filter=angle_filter, engine=c["engine"], **extra)
     return np.abs(np.squeeze(np.asarray(img))), x_ax_mm, z_ax_mm
+
+
+EDGE_X_BAND = (70.0, 85.0)      # the right-edge band of the imaged wall
+EDGE_Z_BAND = (25.0, 30.0)      # the OUTER half of the wall depth, where the notch lives
+
+
+def edge_clutter(img, x_ax_mm, z_ax_mm, crack_peak: float,
+                 params: dict | None = None, angle_deg: float = 20.0,
+                 x_band=EDGE_X_BAND, z_band=EDGE_Z_BAND):
+    """The edge-clutter level, in TWO PINNED definitions. Both are dB re the crack peak.
+
+    WHY THIS FUNCTION EXISTS
+        The "+1.8 dB edge-clutter excess" was chased through three experiments while
+        living in no script at all. Re-derived from the saved images on 2026-08-19 it
+        ranges from +3.11 dB to -0.76 dB depending on choices nobody had written down.
+        Both definitions below are now computed here and nowhere else, so the number
+        cannot drift again.
+
+    THE PINNED DEFINITION (`edge_p95_db`)
+        in-wall pixels with x in `x_band` AND z in `z_band`, p95, dB re that image's own
+        crack peak. This is the one that reproduces the value the report quotes: on the
+        committed images_20.npz it gives FEM -13.75, k-Wave -15.50, excess +1.76 dB.
+
+    THE VARIANT (`edge_rms_db`)
+        in-wall pixels with x in `x_band`, NO z restriction, RMS, same normalisation.
+        FEM -21.40, k-Wave -20.65, excess -0.76 dB, i.e. FEM is BETTER under this one.
+        It is reported alongside on purpose: our published claim IS sensitive to the
+        choice and the variant that flatters us must not be the only one on show.
+
+    THE FULL SET MEASURED, FEM-minus-k-Wave excess on the committed +20 deg images:
+        x 70-85, z 25-30, p95   +1.76 dB   <- PINNED, matches the reported +1.8
+        x 70-80, z 25-30, p95   +1.76 dB
+        x 70-85, z 25-30, RMS   +3.11 dB
+        x 70-80, z 25-30, RMS   +3.13 dB
+        x 70-85, all z,   p95   -0.25 dB
+        x 70-85, all z,   RMS   -0.76 dB   <- VARIANT
+        x 70-80, all z,   RMS   -0.85 dB
+        x 65-85, all z,   RMS   -1.17 dB
+        per-column dB-domain mean over x 70-85, re crack peak       -2.06 dB
+        same, normalised to each image's own whole-wall clutter RMS  -0.83 dB
+    Normalising to each image's own whole-wall clutter RMS instead of its crack peak
+    shifts every row by roughly +1.2 dB. NONE of this is derivable from first
+    principles: the definition is a CHOICE, and `edge_p95_db` is the choice the report
+    quotes. Positive excess means FEM is dirtier than k-Wave.
+
+    THE BAND MIRRORS WITH THE STEERING SIGN, and it must. x 70-85 mm is the DOWN-STEER
+    edge at +20 deg only. Measured 2026-08-19 on images_-20*.npz: at -20 deg that band is
+    identically ZERO in both solvers' images (band RMS exactly 0, so the level is -inf) -
+    the TOF tables are NaN there because the beam is steered the other way and nothing is
+    insonified. Reading "x 70-85" literally at -20 deg therefore does not measure a
+    smaller artefact, it measures empty grid. For `angle_deg` < 0 the band is reflected
+    about the aperture midpoint, which is where the artefact actually appears.
+    """
+    p = dict(FROZEN if params is None else params)
+    if angle_deg < 0:                       # reflect about the aperture midpoint
+        x_mid = 0.5 * (p["n_elem"] - 1) * p["pitch"] * 1e3
+        x_band = (2 * x_mid - x_band[1], 2 * x_mid - x_band[0])
+    X, Z = np.meshgrid(x_ax_mm, z_ax_mm, indexing="ij")
+    R = np.hypot(X - p["x_c"] * 1e3, Z - p["z_c"] * 1e3)
+    in_wall = (R >= p["r_id"] * 1e3) & (R <= p["r_od"] * 1e3)
+    a = np.nan_to_num(img)
+    band = in_wall & (X >= x_band[0]) & (X <= x_band[1])
+    core = band & (Z >= z_band[0]) & (Z <= z_band[1])
+    db = lambda v: float(20 * np.log10(v / crack_peak)) if v > 0 else -np.inf
+    return dict(edge_p95_db=db(float(np.percentile(a[core], 95))) if core.any() else np.nan,
+                edge_rms_db=db(float(np.sqrt((a[band] ** 2).mean()))) if band.any() else np.nan,
+                edge_x_band=(float(x_band[0]), float(x_band[1])),
+                edge_core_px=int(core.sum()), edge_band_px=int(band.sum()))
 
 
 def image_metrics(img, x_ax_mm, z_ax_mm, params: dict | None = None,
                   notch_x_mm: float | None = None, notch_depth_mm: float | None = None,
-                  guard_mm: float = 6.0):
+                  guard_mm: float = 6.0, angle_deg: float = 20.0):
     """Crack response vs defect-free-wall clutter - the quantitative comparison.
 
     A defect-free region of homogeneous steel must return NOTHING. Whatever it does return
@@ -177,9 +285,37 @@ def image_metrics(img, x_ax_mm, z_ax_mm, params: dict | None = None,
     hit = np.where(col > 0.25 * pk)[0]
     extent = (z_ax_mm[hit.max()] - z_ax_mm[hit.min()]) if hit.size else np.nan
 
-    return dict(crack_peak=float(pk),
-                crack_x_mm=float(x_ax_mm[i[0]]), crack_z_mm=float(z_ax_mm[i[1]]),
-                clutter_rms=rms, clutter_p95=p95, clutter_max=mx,
-                cnr_rms_db=float(db(rms)), cnr_p95_db=float(db(p95)),
-                cnr_worst_db=float(db(mx)), notch_extent_mm=float(extent),
-                n_wall_px=int(in_wall.sum()), n_clutter_px=int(clutter_roi.sum()))
+    out = dict(crack_peak=float(pk),
+               crack_x_mm=float(x_ax_mm[i[0]]), crack_z_mm=float(z_ax_mm[i[1]]),
+               clutter_rms=rms, clutter_p95=p95, clutter_max=mx,
+               cnr_rms_db=float(db(rms)), cnr_p95_db=float(db(p95)),
+               cnr_worst_db=float(db(mx)), notch_extent_mm=float(extent),
+               n_wall_px=int(in_wall.sum()), n_clutter_px=int(clutter_roi.sum()))
+    # Pinned edge-clutter numbers travel with every metrics dict, so no caller can quote
+    # an unpinned one. See edge_clutter's docstring for why both are reported.
+    out.update(edge_clutter(img, x_ax_mm, z_ax_mm, float(pk), p, angle_deg))
+    return out
+
+
+if __name__ == "__main__":
+    # Self-check. Needs only numpy and the committed +20 deg images, no beamformer.
+    #   ./run.ps1 python3 lib/tt_t_image.py
+    # Guards the two things that must not drift: the legacy chain's settings, and the
+    # pinned edge-clutter number on the published image.
+    from pathlib import Path
+
+    assert CHAINS["legacy"] == dict(dec_from=2.0, engine="numpy", antialias=0.0,
+                                    bandpass=True), "legacy chain has been altered"
+    p = Path(__file__).resolve().parents[1] / "results" / "compare" / "images_20.npz"
+    d = np.load(p)
+    m = {lab: image_metrics(np.nan_to_num(d[f"{lab}_img"]), d["x"], d["z"])
+         for lab in ("FEM", "k-Wave")}
+    pinned = m["FEM"]["edge_p95_db"] - m["k-Wave"]["edge_p95_db"]
+    variant = m["FEM"]["edge_rms_db"] - m["k-Wave"]["edge_rms_db"]
+    print(f"pinned edge excess  {pinned:+.2f} dB (expect +1.76)")
+    print(f"variant edge excess {variant:+.2f} dB (expect -0.76)")
+    assert abs(pinned - 1.76) < 0.01, pinned
+    assert abs(variant + 0.76) < 0.01, variant
+    assert abs(m["FEM"]["notch_extent_mm"] - 3.73) < 0.01, m["FEM"]["notch_extent_mm"]
+    assert abs(m["k-Wave"]["notch_extent_mm"] - 3.23) < 0.01
+    print("OK: legacy chain frozen, pinned edge metric reproduces the published values")

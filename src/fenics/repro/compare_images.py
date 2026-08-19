@@ -38,7 +38,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.bf_loader import load_beamformer                      # noqa: E402
 from lib.tt_t_image import (tt_t_image, image_metrics, params_from_kwave,  # noqa: E402
-                            FROZEN)
+                            CHAINS, EDGE_Z_BAND, FROZEN)
 
 OUT = Path(__file__).resolve().parents[1] / "results" / "compare"
 
@@ -57,6 +57,10 @@ def main() -> None:
                     help="draw the raw image only - no wall arcs, no true-notch marker")
     ap.add_argument("--tag", default="", help="suffix for the output figure, so a variant "
                                               "run does not clobber the canonical one")
+    ap.add_argument("--chain", default="legacy", choices=sorted(CHAINS),
+                    help="imaging chain preset (lib/tt_t_image.CHAINS). 'legacy' is the "
+                         "published chain and the default - do not change it if you want "
+                         "to reproduce a figure on disk.")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -71,8 +75,9 @@ def main() -> None:
             raise SystemExit(f"{label}: file steering {ang} != requested {args.angle}")
         print(f"\n[{label}] {Path(path).name}  {ch.shape}  peak |p| {np.abs(ch).max():.4g}")
         t0 = time.time()
-        img, x_ax, z_ax = tt_t_image(bf, ch, dt, ang, params, verbose=True)
-        m = image_metrics(img, x_ax, z_ax, params)
+        img, x_ax, z_ax = tt_t_image(bf, ch, dt, ang, params, verbose=True,
+                                     chain=args.chain)
+        m = image_metrics(img, x_ax, z_ax, params, angle_deg=ang)
         print(f"    imaged {img.shape} in {time.time()-t0:.1f}s")
         results[label] = dict(img=img, x=x_ax, z=z_ax, m=m)
         return m
@@ -101,6 +106,8 @@ def main() -> None:
     t_x = FROZEN["notch_x"] * 1e3
     t_d = FROZEN["notch_depth"] * 1e3
     t_od = (FROZEN["r_od"] + FROZEN["z_c"]) * 1e3
+    # The edge band mirrors for negative steering, so label the one actually measured.
+    _xb = results[list(results)[0]]["m"]["edge_x_band"]
     keys = [("crack_peak", "crack peak (arb)", "{:.4g}"),
             ("crack_x_mm", f"crack x [mm]  (true {t_x:.2f})", "{:.2f}"),
             ("crack_z_mm", f"crack z [mm]  (OD {t_od:.2f})", "{:.2f}"),
@@ -110,11 +117,19 @@ def main() -> None:
             ("clutter_max", "wall clutter worst", "{:.4g}"),
             ("cnr_rms_db", "crack / clutter RMS   [dB]", "{:.1f}"),
             ("cnr_p95_db", "crack / clutter p95   [dB]", "{:.1f}"),
-            ("cnr_worst_db", "crack / worst clutter [dB]", "{:.1f}")]
+            ("cnr_worst_db", "crack / worst clutter [dB]", "{:.1f}"),
+            # Both pinned edge-clutter definitions. lib/tt_t_image.edge_clutter's
+            # docstring says which one the report quotes and what the others give.
+            ("edge_p95_db", f"edge x{_xb[0]:.1f}-{_xb[1]:.1f} "
+                            f"z{EDGE_Z_BAND[0]:.0f}-{EDGE_Z_BAND[1]:.0f} p95 [dB] PINNED",
+             "{:.2f}"),
+            ("edge_rms_db", f"edge x{_xb[0]:.1f}-{_xb[1]:.1f} "
+                            f"all-z RMS [dB] variant", "{:.2f}")]
     labels = list(results)
     w = 22
     print("\n" + "=" * (34 + w * len(labels)))
-    print(f"HEAD-TO-HEAD, steering {args.angle:+.0f} deg, identical beamformer")
+    print(f"HEAD-TO-HEAD, steering {args.angle:+.0f} deg, identical beamformer, "
+          f"chain '{args.chain}'")
     print("=" * (34 + w * len(labels)))
     print(f"{'metric':<34}" + "".join(f"{l:>{w}}" for l in labels))
     print("-" * (34 + w * len(labels)))
@@ -124,6 +139,11 @@ def main() -> None:
     print("-" * (34 + w * len(labels)))
     print("Higher dB = crack stands further above the numerical clutter floor.")
     print("A defect-free steel wall should image as black, so clutter is numerical.")
+    if "FEM" in results and "k-Wave" in results:
+        f, k = results["FEM"]["m"], results["k-Wave"]["m"]
+        print(f"EDGE EXCESS, FEM minus k-Wave (positive = FEM dirtier): "
+              f"{f['edge_p95_db'] - k['edge_p95_db']:+.2f} dB pinned, "
+              f"{f['edge_rms_db'] - k['edge_rms_db']:+.2f} dB variant")
 
     # --- figures ------------------------------------------------------------------------
     # Normalise EACH panel to its OWN max, not to a shared max. The absolute amplitude
@@ -162,7 +182,9 @@ def main() -> None:
             "almost no mode conversion at normal incidence - so neither image is meaningful.")
     fig.suptitle(f"TT-T image, steering {args.angle:+.0f} deg - identical beamformer, "
                  f"forward solver is the only difference{note}", fontsize=11)
-    suffix = f"_{args.tag}" if args.tag else ("_nooverlay" if args.no_overlay else "")
+    # The two suffixes COMPOSE. They used to be exclusive, so `--tag X --no-overlay`
+    # wrote over the annotated `_X` figure - the exact clobber --tag exists to prevent.
+    suffix = (f"_{args.tag}" if args.tag else "") + ("_nooverlay" if args.no_overlay else "")
     p = OUT / (f"compare_{args.angle:+.0f}deg".replace("+", "p").replace("-", "m")
                + f"{suffix}.png")
     fig.savefig(p, dpi=140, bbox_inches="tight")
