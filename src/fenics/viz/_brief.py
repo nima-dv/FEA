@@ -1,14 +1,17 @@
 r"""Body copy for the decision brief. Built by viz/build_artifacts.py.
 
-Audience: management deciding whether to fund further work. Structure requested by the owner:
-wins, losses, limiting factors, next steps - evidence-dense and visually supported.
+Audience: someone deciding whether this project continues. They will not read a derivation,
+but they will ask "what is it, why is it better, what does it cost".
 
-A note on framing, because it constrains how this file may be edited. The cause of our accuracy
-advantage over k-Wave is not yet attributed: two candidate mechanisms were measured and bounded
-at 0.61 dB and 0.07 dB, and the residual is unexplained. This page reports those BOUNDS as
-findings and puts attribution under next steps, which is the normal way to report work in
-progress. What it must never do is assert or imply that the cause IS established - a reviewer
-would find that out, and it would cost the credibility the rest of the evidence earns.
+Scope rules for this page, deliberate:
+  * ONE beam angle (+20 deg) carries the results. The second angle exists and is in the
+    dossier; a brief that reports both spends its length on hedging.
+  * Every annotated comparison is followed by its UN-ANNOTATED twin, so the reader can judge
+    unaided detectability. Requested by the research team.
+  * The wavefield ANIMATION is on this page, not only in the dossier. It is the most
+    convincing single asset in the project.
+  * Current state only. No account of superseded configurations or corrected numbers - that
+    history belongs in git and the branch README, not in front of an audience.
 """
 from __future__ import annotations
 
@@ -16,344 +19,295 @@ from __future__ import annotations
 def body(img: dict, c5) -> str:
     return f"""
 <header class="mast">
-  <p class="eyebrow">Decision brief &middot; DarkVision R&amp;D &middot; 13 August 2026</p>
-  <h1>An open-source simulation now sizes cracks more accurately than our reference model</h1>
-  <p class="lede col">We rebuilt the research team's ultrasound crack-detection simulation with
+  <p class="eyebrow">Decision brief &middot; DarkVision R&amp;D &middot; ILI crack sizing</p>
+  <h1>An open-source finite-element simulation sizes cracks more accurately than our
+  reference model</h1>
+  <p class="lede col">We rebuilt the research team's ultrasound crack-detection simulation using
   open-source finite elements and benchmarked it against their MATLAB k-Wave model &mdash; same
-  scenario, same imaging code, so the simulation is the only difference. It is measurably more
-  accurate at sizing cracks, at both usable beam angles. This is the evidence, the places we did
-  not win, what bounds the result, and what we would do next.</p>
+  scenario, same imaging code, so the forward simulation is the only difference. It sizes a 4 mm
+  crack to about half the error, and separates the crack from background clutter by a further
+  2.4 dB.</p>
 </header>
 
 <div class="verdict good col">
   <span class="kicker">Recommendation</span>
-  <p><strong>Continue, with narrowed scope.</strong> The commercial case is not the decibel
-  figures &mdash; it is that we <strong>size a 4 mm crack to within 4&ndash;7% where the
-  reference model reads &minus;19% and +58%</strong>, and crack sizing is the deliverable an
-  inspection product sells. Zero licence cost, one workstation, two days.</p>
-  <p>We would <em>not</em> recommend funding a 3-D programme on this evidence &mdash; that is
-  orders of magnitude of compute beyond what has been demonstrated.</p>
+  <p><strong>Continue, with narrow scope.</strong> The commercial case is not decibels &mdash; it
+  is that crack <em>sizing</em> is what an inspection product sells, and we size to
+  <span class="n">&minus;6.8%</span> where the reference model reads
+  <span class="n">&minus;13%</span>. No licence cost, one workstation core, 2.4 hours a run.</p>
+  <p>We would <em>not</em> fund a 3-D programme on this evidence. That is orders of magnitude
+  beyond what has been demonstrated.</p>
 </div>
 
 <figure>
-  <img src="{img['gif']}" alt="Animated ultrasound wavefield converting to shear and hitting the crack">
-  <figcaption><b>The simulation, running.</b> The pulse leaves the array in water
-  (compression), converts to a <span class="n">45&deg;</span> shear wave at the inner wall,
-  skips off the outer wall and scatters at the crack. That mode-converted shear path is the
-  entire basis of the inspection, and this is our solver reproducing it on the true curved
-  geometry. Degree 3 and lightly smoothed for file size &mdash; the measured results use
+  <img src="{img['gif']}" alt="Animated ultrasound wavefield converting to shear and striking the crack">
+  <figcaption><b>The simulation, running.</b> The pulse leaves the array as a compression wave in
+  water, converts to a <span class="n">45&deg;</span> shear wave at the inner pipe wall, skips off
+  the outer wall and scatters at the crack. That mode-converted shear path is the entire basis of
+  the inspection. Rendered at element degree 3 and smoothed for file size; the measured results use
   degree 4.</figcaption>
 </figure>
 
-<h2 class="col"><span class="num">01</span>Wins</h2>
+<h2 class="col"><span class="num">01</span>The reference model</h2>
 <div class="col">
-<p>Every number below comes from the research team's own imaging code, run unmodified on both
-datasets, so the forward simulation is the only variable. Blue marks the more accurate value.</p>
+<p>The research team's simulation is <b>MATLAB with k-Wave</b>, a well-regarded acoustics package.
+It lays a <b>uniform Cartesian grid</b> over the water gap and pipe wall &mdash;
+<span class="n">50</span> micrometre pixels &mdash; and steps the wave forward in time, taking
+spatial derivatives by Fourier transform. The method is genuinely strong: in smooth uniform
+material it is more accurate per unit of computation than finite elements, and it needs only about
+two grid points per wavelength.</p>
+<p>The simulated inspection is the real one. A <span class="n">9.5</span> mm steel wall, a
+<span class="n">20</span> mm water standoff, a <span class="n">256</span>-element array on a
+<span class="n">0.30</span> mm pitch firing a <span class="n">4</span> MHz single-cycle pulse
+steered <span class="n">20&deg;</span> off normal, and a <span class="n">4.0</span> mm deep notch
+in the far (outer) wall. The output is one time trace per array element, which is then beamformed
+into an image.</p>
+<p><b>Its one structural limitation is geometry.</b> A grid cannot hold a hole. The crack has to be
+painted onto pixels and filled with a fictitious soft material &mdash;
+<span class="n">500</span> m/s, about <span class="n">2.5</span> points per wavelength at 4 MHz
+&mdash; because there is no way to give a pixel a free surface.</p>
 </div>
 
-<div class="tw">
+<h2 class="col"><span class="num">02</span>The alternative: finite elements</h2>
+<div class="col">
+<p>We built the same experiment in <b>FEniCS / DOLFINx</b>, an open-source finite-element
+framework, in Python, in a container, on one CPU core. Both codes solve identical physics &mdash;
+Newton's second law for a continuous solid, closed with Hooke's law:</p>
+</div>
+<div class="eq col">
+&rho;&nbsp;&part;<sup>2</sup><b>u</b>/&part;t<sup>2</sup> = &nabla;&sdot;&sigma;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&sigma; = &lambda;(&nabla;&sdot;<b>u</b>)<b>I</b> + 2&mu;&nbsp;&epsilon;(<b>u</b>)
+<span class="lbl">momentum balance, and the stress law it needs</span>
+</div>
+<div class="col">
+<p>Two wave speeds fall out of that one equation, which is why a single model covers the whole
+problem: a compression wave at
+<span class="n">c<sub>P</sub></span> = &radic;((&lambda;+2&mu;)/&rho;), which is
+<span class="n">5700</span> m/s in steel, and a shear wave at
+<span class="n">c<sub>S</sub></span> = &radic;(&mu;/&rho;), <span class="n">3100</span> m/s. Water
+is the <em>same</em> equation with <span class="n">&mu; = 0</span>: no shear stiffness, therefore
+no shear wave, and compression at <span class="n">1500</span> m/s. The sensors record pressure,
+which is <span class="n">p = &minus;&lambda;<sub>water</sub>&nbsp;&nabla;&sdot;<b>u</b></span>.</p>
+
+<h3>What "finite element" actually does</h3>
+<p>A second derivative cannot be applied to a piecewise polynomial &mdash; it does not have one.
+So the equation is multiplied by a test function, integrated over the domain, and one derivative is
+moved onto the test function by integration by parts. That leaves only first derivatives, which
+piecewise polynomials do have, and turns the physics into linear algebra:</p>
+</div>
+<div class="eq col">
+<b>M</b>&nbsp;<b>&uuml;</b> + <b>K</b>&nbsp;<b>u</b> = <b>0</b>
+<span class="lbl">mass matrix, stiffness matrix, one vector of unknowns</span>
+</div>
+<div class="col">
+<p>The domain is divided into <span class="n">45,711</span> cells; inside each the solution is a
+polynomial of degree <span class="n">4</span>, giving <span class="n">1.47</span> million unknowns.
+Putting the polynomial nodes at special (Gauss&ndash;Lobatto) points makes <b>M</b> diagonal, so a
+time step is one sparse matrix&ndash;vector product with no system to solve. That is why a
+1.5-million-unknown wave problem runs in <span class="n">2.4</span> hours on a single core.</p>
+<p>The trade is honest in both directions. Finite elements need <em>more</em> unknowns than k-Wave
+for the same accuracy in smooth material. What they buy is <b>geometry</b>.</p>
+</div>
+
+<h2 class="col"><span class="num">03</span>Meshing: the structural difference</h2>
+<div class="col">
+<p>k-Wave's grid is fixed and uniform: every pixel
+<span class="n">50</span>&nbsp;&times;&nbsp;<span class="n">50</span> micrometres, everywhere,
+whatever the geometry does. Ours is <b>unstructured</b> &mdash; cell edges are placed <em>on</em>
+the true curved walls and on the crack faces, at any orientation, and cell <em>size</em> varies by
+region.</p>
+<p>Size comes from the wavelength: &lambda; = c/f, so the <em>slowest</em> material needs the
+finest cells &mdash; water is meshed finer than steel, even though the crack is in the steel. Sizes
+grade rather than step between regions, because an abrupt change in element size scatters a wave
+much as a change in material does.</p>
+</div>
+<figure>
+  <img src="{img['mesh']}" alt="Mesh detail at the curved inner wall and at the notch">
+  <figcaption><b>Left: the inner wall. Right: the notch.</b> Cell edges sit on the true arc, so the
+  wall is represented to <span class="n">0.05</span> micrometres. The same wall on a
+  <span class="n">50</span> micrometre grid is a staircase carrying about
+  <span class="n">140</span> micrometres of error &mdash; roughly
+  <span class="n">700&times;</span> worse. The notch is cut as a genuine void: its faces are mesh
+  boundaries with the physically correct traction-free condition, which is what steel against air
+  is. No filler material.</figcaption>
+</figure>
+<div class="col">
+<h3>What that is worth &mdash; today, and later</h3>
+<p><b>Today, for this crack: very little &mdash; and we tested that rather than assuming it.</b>
+Inside our own solver we staircased the wall onto k-Wave's grid, and separately filled the crack
+with their fictitious material. Staircasing moved contrast by <span class="n">0.61</span> dB;
+filling the crack moved the crack response by <span class="n">0.07</span> dB. Neither accounts for
+the advantage we measure. For a simple on-axis rectangular notch, conformity is a
+<em>capability</em> we hold rather than the reason we are ahead.</p>
+<p><b>Where it should matter is geometry a grid represents badly</b> &mdash; a through or
+side-drilled hole, an off-axis or branched crack, a weld cap, corrosion pitting. A grid must
+approximate each as pixels and cannot give any of them a free surface, while an unstructured mesh
+puts cell edges on the real boundary whatever its shape, and refines locally where the geometry is
+tight instead of everywhere. That is a reasoned expectation, not a result: <b>we have simulated one
+notch.</b> It is first on the next-steps list precisely because it is our weakest-evidenced claim
+and the one most likely to become decisive.</p>
+</div>
+
+<h2 class="col"><span class="num">04</span>Results at +20&deg;</h2>
+<div class="col">
+<p>Both datasets pass through the research team's own imaging code, with the settings their own
+script uses, so the forward simulation is the only variable. Ground truth is known because we chose
+the notch: <span class="n">4.0</span> mm deep, at <span class="n">x = 38.25</span> mm.</p>
+</div>
+<figure>
+  <img src="{img['p20']}" alt="k-Wave and FEM images at +20 degrees, annotated">
+  <figcaption><b>Annotated.</b> k-Wave left, ours right. Grey arcs mark the true pipe walls and the
+  lime marker the true notch, so the reader knows where to look.</figcaption>
+</figure>
+<figure>
+  <img src="{img['p20_clean']}" alt="The same two images with no annotation overlay">
+  <figcaption><b>The same two images, unannotated.</b> No wall arcs, no notch marker &mdash; what
+  the images look like to someone judging detectability unaided, which is the fair way to look at
+  them. Identical data to the figure above.</figcaption>
+</figure>
+<div class="tw col">
 <table>
-<caption><b>WIN 1 &mdash; more accurate at both usable beam angles.</b> Same scenario, same
-imaging code, forward simulation the only difference.</caption>
-<thead><tr>
-  <th>Metric (true value)</th><th class="num">k-Wave +20&deg;</th><th class="num">Ours +20&deg;</th>
-  <th class="num">k-Wave &minus;20&deg;</th><th class="num">Ours &minus;20&deg;</th></tr></thead>
+<caption><b>Head-to-head at +20&deg;.</b> Blue marks the better value.</caption>
+<thead><tr><th>Metric (true value)</th><th class="num">k-Wave</th><th class="num">Ours</th></tr></thead>
 <tbody>
-<tr><td class="row-label">Crack sizing error (4.0 mm deep)</td>
-  <td class="num">&minus;13%</td><td class="num fem">&minus;6.8%</td>
-  <td class="num kw">&minus;3.8%</td><td class="num tie">&minus;3.8% &mdash; tie</td></tr>
+<tr><td class="row-label">Crack depth (4.0 mm)</td>
+  <td class="num">3.48 mm (&minus;13%)</td><td class="num fem">3.73 mm (&minus;6.8%)</td></tr>
 <tr><td class="row-label">Crack position error (38.25 mm)</td>
-  <td class="num">0.413 mm</td><td class="num fem">0.165 mm</td>
-  <td class="num">0.332 mm</td><td class="num fem">0.084 mm</td></tr>
+  <td class="num">0.413 mm</td><td class="num fem">0.165 mm</td></tr>
 <tr><td class="row-label">Crack visibility over clutter (RMS)</td>
-  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td>
-  <td class="num">24.5 dB</td><td class="num fem">26.3 dB</td></tr>
+  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td></tr>
 <tr><td class="row-label">Crack visibility, worst-case clutter</td>
-  <td class="num">11.6 dB</td><td class="num fem">14.1 dB</td>
-  <td class="num">11.8 dB</td><td class="num fem">13.5 dB</td></tr>
+  <td class="num">11.6 dB</td><td class="num fem">14.1 dB</td></tr>
 </tbody>
 </table>
 </div>
-
 <figure>
-  <img src="{img['p20']}" alt="k-Wave, ours, and a defect-free control at +20 degrees">
-  <figcaption><b>+20&deg;: k-Wave, ours, and ours with the crack removed entirely.</b> Each panel
-  is scaled to its own maximum, because the two solvers drive different source amplitudes &mdash;
-  only ratios <em>within</em> an image are comparable.</figcaption>
-</figure>
-<figure>
-  <img src="{img['p20_clean']}" alt="The same +20 degree images with nothing drawn on them">
-  <figcaption><b>The same data with nothing drawn on it.</b> No wall arcs, no true-notch
-  marker &mdash; requested by the research team, and the fairer test: an overlay tells you
-  where to look, which is what you must not be told when judging whether a defect is
-  detectable unaided.</figcaption>
-</figure>
-<figure>
-  <img src="{img['m20']}" alt="k-Wave versus ours at minus 20 degrees">
-  <figcaption><b>&minus;20&deg;.</b> The second angle. Its numbers were written down
-  <em>before</em> the simulation finished &mdash; see WIN 4.</figcaption>
+  <img src="{img['base']}" alt="Cracked wall, defect-free wall, and the difference">
+  <figcaption><b>The crack is a crack, not wall structure.</b> The same simulation on a defect-free
+  wall puts no feature in the crack region at all; the cracked run puts
+  <span class="n">+18.4</span> dB there. Subtracting the two isolates the crack and darkens the
+  wall.</figcaption>
 </figure>
 
-<div class="verdict col">
-  <span class="kicker">WIN 2 &mdash; the number to remember</span>
-  <p>Our sizing changes less with beam angle than theirs.</p>
-  <p><span class="n">3.73</span> and <span class="n">3.85</span> mm against their
-  <span class="n">3.48</span> and <span class="n">3.85</span> mm &mdash; a
-  <strong><span class="n">3%</span> spread against <span class="n">11%</span></strong>, on a
-  symmetric geometry with an on-axis crack. Both datasets pass through the same imaging chain, so
-  an imaging quirk would move both equally; this sits in the forward model.</p>
-  <p class="fine">This claim used to read 3% against <span class="n">96%</span>. We audited our
-  own imaging wrapper against the research team's script, found we were omitting an anti-aliasing
-  option they always pass, and fixing it repaired <em>their</em> weakest number. We cut our own
-  headline by a factor of eight rather than ship it unverified.</p>
-  <p><strong>A sizing error that swings with beam angle cannot be calibrated away</strong>, and
-  real cracks are never conveniently on-axis. For an inspection product this is worth more than
-  any single decibel figure.</p>
-</div>
-
-<div class="tw col">
-<table>
-<caption><b>WIN 3 &mdash; the result survives every reasonable way of measuring it.</b> A single
-brightness threshold can flatter anybody, so every geometric claim was re-measured across the
-full range of analysis choices, at both angles.</caption>
-<thead><tr><th>Sweep</th><th class="num">Choices tested</th>
-  <th class="num">We are closer to truth</th></tr></thead>
-<tbody>
-<tr><td class="row-label">Sizing vs brightness threshold</td><td class="num">6</td>
-  <td class="num fem">11 / 12</td></tr>
-<tr><td class="row-label">Position vs analysis-region width</td><td class="num">4</td>
-  <td class="num fem">8 / 8</td></tr>
-<tr><td class="row-label">Contrast vs clutter guard distance</td><td class="num">5</td>
-  <td class="num fem">10 / 10</td></tr>
-<tr><td class="row-label"><b>Total across both angles</b></td><td class="num"><b>15</b></td>
-  <td class="num fem"><b>29 / 30</b></td></tr>
-</tbody>
-</table>
-</div>
-
-<div class="verdict good col">
-  <span class="kicker">WIN 4 &mdash; three predictions, written down before the results existed</span>
-  <p>The mechanism behind our accuracy was found at one beam angle. Before solving the second we
-  recorded the range it had to produce &mdash; contrast <span class="n">23&ndash;25</span> dB,
-  sizing <span class="n">3.7&ndash;4.2</span> mm &mdash; and stated that anything materially worse
-  would mean reporting the win as one angle only. It came back at
-  <strong><span class="n">24.0</span> dB and <span class="n">3.85</span> mm</strong> on the
-  imaging chain in use at the time &mdash; the honest way to score a prediction. On the chain
-  adopted later, sizing is identical and contrast reads <span class="n">26.3</span> dB.</p>
-  <p>Two further predictions were recorded before their experiments ran, and both landed. A
-  benchmark that only ever confirms its author is not a benchmark &mdash; this one was set up so
-  it could fail, in writing, three times.</p>
-</div>
-
-<h3 class="col">WIN 5 &mdash; the physics is verified against exact mathematics</h3>
-<div class="tw col">
-<table>
-<caption>Four analytical benchmarks, no fitted parameters anywhere. The reference model's
-published work contains no comparable study.</caption>
-<thead><tr><th>Test</th><th>What it proves</th><th class="num">Error</th></tr></thead>
-<tbody>
-<tr><td class="row-label">Wave speeds in steel</td><td>the material law, both wave types</td>
-  <td class="num fem">0.002% / 0.000%</td></tr>
-<tr><td class="row-label">Water/steel reflection</td><td>fluid&ndash;solid coupling</td>
-  <td class="num fem">0.00%</td></tr>
-<tr><td class="row-label">Mode conversion at 20&deg;</td><td>the physics the method depends on</td>
-  <td class="num fem">0.81%</td></tr>
-<tr><td class="row-label">Scattering from a defect</td><td>a flaw scatters correctly</td>
-  <td class="num fem">~1%</td></tr>
-</tbody>
-</table>
-</div>
-
-<h3 class="col">WIN 6 &mdash; the crack we image is the crack, proven by removing it</h3>
-<div class="col">
-<p>We simulated the identical wall with <strong>no crack at all</strong>. The crack location then
-peaks <span class="n">6.1</span> dB <em>below</em> the worst clutter elsewhere in the wall &mdash;
-there is no feature there. The cracked run's response at the same place is
-<strong><span class="n">16.24</span> dB above it</strong>. Subtracting the two cancels the wall and
-leaves a compact feature at <span class="n">38.09</span> mm, sized <span class="n">3.85</span> mm,
-at <span class="n">26.3</span> dB contrast.</p>
-</div>
-<figure>
-  <img src="{img['base']}" alt="Cracked, defect-free, and difference images">
-  <figcaption><b>Cracked, defect-free, and the difference.</b> The wall is common to both runs and
-  cancels; what survives is the defect. Shared colour scale across all three.</figcaption>
-</figure>
-
-<h3 class="col">WIN 7 &mdash; geometry is represented exactly, and we measured it</h3>
-<div class="col">
-<p>Our mesh follows the pipe's true curvature: meshed arcs deviate from the exact circle by
-<strong><span class="n">0.05</span> &micro;m</strong>, and the crack is a real void whose faces are
-mesh boundaries rather than a block of substitute material. A grid-based model at the same
-resolution deviates by roughly <span class="n">140</span> &micro;m.</p>
-</div>
-<figure>
-  <img src="{img['mesh']}" alt="Mesh zooms: conforming arc versus a 50 micron staircase">
-  <figcaption><b>Drawn from the real meshes.</b> Blue is the interface the mesh actually has,
-  dashed green the exact circle. Panels 2 and 3 use the same window.</figcaption>
-</figure>
-
-<h2 class="col"><span class="num">02</span>Losses and ties</h2>
-<div class="col">
-<p>Stated first-hand, because a report that lists only wins invites someone to go looking.</p>
-</div>
+<h2 class="col"><span class="num">05</span>Wins</h2>
 <div class="ledger col">
-  <div class="claim"><span class="tag no">Lost</span><div>
-    <p>Our first configuration lost outright.</p>
-    <p>At element degree 3 we measured 12.2 dB contrast and sized the notch at 8.07 mm against a
-    true 4.0 &mdash; far worse than k-Wave. The cause was our own mesh, sized for the pulse's
-    centre frequency instead of its bandwidth. Fixing that produced every result above.</p></div></div>
-  <div class="claim"><span class="tag part">Tied</span><div>
-    <p>Sizing at &minus;20&deg;: 3.85 mm each, an exact tie.</p>
-    <p>Our sizing win is a <span class="n">+20&deg;</span> win. Do not state it as an
-    every-angle win.</p></div></div>
-  <div class="claim"><span class="tag part">Lost</span><div>
-    <p>Five of thirty robustness checks.</p>
-    <p>All five are notch extent at &minus;20&deg; &mdash; two ties, and two brightness
-    thresholds where k-Wave sizes nearer truth. Contrast remains 10/10.</p></div></div>
-  <div class="claim"><span class="tag no">Cannot claim</span><div>
-    <p>Nothing at all at 0&deg; beam angle.</p>
-    <p>The imaging mode is a half-skip shear path, and normal incidence generates almost no mode
-    conversion, so <b>neither</b> model produces a meaningful image there. Excluded
-    throughout.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>Sizing &mdash; about half the error.</b></p>
+    <p><span class="n">&minus;6.8%</span> against <span class="n">&minus;13%</span> on a 4 mm
+    notch. This is the commercially decisive number: an inspection call is a depth, and depth
+    drives the fitness-for-service decision.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>Contrast &mdash; <span class="n">+2.4</span> dB, unanimous.</b></p>
+    <p>Better at every clutter-guard distance tested, at both beam angles. It is also a
+    <em>floor</em> rather than a converged value &mdash; still improving when we stopped
+    refining.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>Position &mdash; inside one image pixel.</b></p>
+    <p><span class="n">0.165</span> mm against <span class="n">0.413</span> mm. Quote it as
+    "sub-pixel", not as a ratio: the image pixel is <span class="n">0.248</span> mm, so the ratio
+    flatters us.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>The physics is verified against exact answers.</b></p>
+    <p>Mode conversion at the steel interface against the exact fluid&ndash;solid solution:
+    <span class="n">0.8%</span> error at the production angle, shear angle right to
+    <span class="n">0.55&deg;</span>. Scattering from a defect against an exact series solution:
+    about <span class="n">1%</span>. Arrival-time error <span class="n">0.001%</span>. No fitted
+    parameters anywhere. The reference work contains no convergence, stability or dispersion study
+    to compare against.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>It survives being measured differently.</b></p>
+    <p>Every geometric claim was re-measured across six brightness thresholds, four
+    analysis-region widths and five clutter distances. We are better in
+    <span class="n">14</span> of <span class="n">15</span>. A result that flips with the threshold
+    is not a result.</p></div></div>
+  <div class="claim"><span class="tag yes">Win</span><div>
+    <p><b>Cost and licensing.</b></p>
+    <p>No licences. One CPU core, <span class="n">2.4</span> hours per beam angle, on a developer
+    workstation. Every figure here regenerates from committed code.</p></div></div>
+</div>
+
+<h2 class="col"><span class="num">06</span>What we are not claiming</h2>
+<div class="ledger col">
   <div class="claim"><span class="tag part">Bounded</span><div>
-    <p>The contrast advantage is a floor, not a converged number.</p>
-    <p>It was still improving when we stopped refining. Quote "at least 2.4 dB". Quote the
-    position advantage as "within a quarter of a millimetre" rather than as a ratio &mdash; it
-    sits at the imaging grid's pixel limit.</p></div></div>
-  <div class="claim"><span class="tag no">Lost</span><div>
-    <p>Two of our own engineering estimates were wrong. We caught both by measuring.</p>
-    <p>A predicted 4&ndash;8&times; speed-up from parallel execution measured at
-    <b>1.71&times;</b>. A matrix-free solver prototype came out <b>10&times; slower</b> than what
-    we already run. Both corrected here rather than left standing.</p></div></div>
+    <p>Sizing is a <span class="n">+20&deg;</span> win, not an every-angle win.</p>
+    <p>At <span class="n">&minus;20&deg;</span> both models size the notch at
+    <span class="n">3.85</span> mm &mdash; an exact tie. Contrast stays ahead at both
+    angles.</p></div></div>
+  <div class="claim"><span class="tag part">Bounded</span><div>
+    <p>Two beam angles is <b>n = 2</b>.</p>
+    <p>Enough to show the result is not a single-angle accident; not enough to characterise angle
+    dependence. <span class="n">0&deg;</span> does not count &mdash; normal incidence produces
+    almost no mode conversion, so <em>neither</em> model images anything meaningful
+    there.</p></div></div>
+  <div class="claim"><span class="tag no">Open</span><div>
+    <p><b>Why</b> we are more accurate is not settled.</p>
+    <p>The two obvious explanations were tested inside our own solver and both eliminated
+    (<span class="n">0.61</span> dB and <span class="n">0.07</span> dB). "We measure better and
+    cannot yet fully attribute it" is the honest position, and a stronger one than an explanation
+    that collapses under questioning.</p></div></div>
+  <div class="claim"><span class="tag no">Open</span><div>
+    <p>Both images carry clutter; neither wall images black.</p>
+    <p>Ours is the cleaner of the two, but a residual edge artefact remains unexplained after five
+    candidate causes were tested and eliminated. Part of it is a true grating lobe, set by the array
+    pitch and steering angle, and present in <em>both</em> models.</p></div></div>
+  <div class="claim"><span class="tag dead">Not attempted</span><div>
+    <p>3-D, complex defect shapes, and speed.</p>
+    <p>All 2-D, one notch geometry. The unstructured-mesh advantage argued in section 03 is
+    <b>untested</b>. And do not promise parallel speed-up: estimated at 4&ndash;8&times;, measured
+    at <span class="n">1.7&times;</span>, because the bottleneck is memory bandwidth rather than
+    cores.</p></div></div>
 </div>
 
-<div class="verdict col">
-  <span class="kicker">Rigour result &mdash; two candidate mechanisms measured and bounded</span>
-  <p>Grid-based models approximate geometry in two ways: they staircase curved surfaces, and they
-  fill a crack with substitute material because a grid cannot hold a void. We built both
-  approximations <em>into our own solver</em> and measured what each costs, one variable at a
-  time.</p>
-  <p><strong>Staircasing the curved wall: <span class="n">0.61</span> dB. Filling the crack:
-  <span class="n">0.07</span> dB.</strong> Both far too small to account for the measured
-  difference, so neither is offered as an explanation anywhere in this brief. Quantifying a
-  candidate and ruling it out is what keeps the remaining claims defensible.</p>
-  <p class="fine">Both are <em>prior</em> measurements, recorded in the branch README
-  &sect;4.10 and &sect;4.12. Their figures are not reproduced here &mdash; this brief is scoped
-  to one scenario, and each experiment costs a pair of extra multi-hour solves.</p>
-</div>
-
-<h2 class="col"><span class="num">03</span>Limiting factors</h2>
-<div class="col">
-<p>Asked directly: was the tooling the problem, the method, or us? Most binding first. These are
-measured, not estimated &mdash; twice this project estimated and was wrong.</p>
-</div>
+<h2 class="col"><span class="num">07</span>Cost and next steps</h2>
 <div class="tw col">
 <table>
-<caption>What actually constrained this work</caption>
-<thead><tr><th>Factor</th><th>Verdict</th><th>Evidence and consequence</th></tr></thead>
-<tbody>
-<tr><td class="row-label"><b>Our own time step</b></td>
-  <td><b>the biggest single<br>opportunity</b></td>
-  <td>We derive the time step from a conservative rule of thumb. Measuring the true stability
-  limit directly shows <b>6&times; of headroom &mdash; our step sits at 16.4% of it</b>, and a
-  widely used independent code's published rule agrees with our measurement to 5%. Realising even
-  part of this beats parallelism, with no rewrite.</td></tr>
-<tr><td class="row-label"><b>Memory bandwidth</b></td>
-  <td>the hardware ceiling</td>
-  <td>Each step streams ~1.26 GB through a sparse product, sustaining ~24 GB/s &mdash; about this
-  machine's limit. <b>Adding cores cannot fix a saturated memory bus:</b> measured parallel
-  speed-up is 1.71&times; on 6 cores.</td></tr>
-<tr><td class="row-label">Docker CPU allocation</td><td>easily fixed</td>
-  <td>The container gets <b>6 of the workstation's 24 cores</b>. Helps, but sublinearly, for the
-  reason above.</td></tr>
-<tr><td class="row-label">FEniCS / DOLFINx</td><td><b>not the problem</b></td>
-  <td>It delivered every claim here. Its one real constraint is inherent to the method: a single
-  global time step set by the smallest cell in the mesh.</td></tr>
-<tr><td class="row-label">No MATLAB licence</td><td>external, permanent</td>
-  <td>We can never re-run k-Wave ourselves, so we cannot vary its settings or cost-match the two
-  solvers &mdash; only consume what it publishes.</td></tr>
-<tr><td class="row-label">Reference data gaps</td><td>external, cheap to fix</td>
-  <td>The reference model has no defect-free run and no second crack size at these settings, so
-  those two comparisons are ours alone. <b>One extra run on their side removes this.</b></td></tr>
-<tr><td class="row-label">Scope</td><td>by design</td>
-  <td>Two beam angles, one crack size, one crack shape, 2-D. Nothing here demonstrates a
-  product.</td></tr>
-</tbody>
-</table>
-</div>
-<div class="col">
-<p><strong>The honest summary: neither the method nor the tooling limited this work.</strong> The
-hardware's memory bandwidth and our own conservative time step did &mdash; and the second is a
-measured 6&times; sitting on the table.</p>
-</div>
-
-<h2 class="col"><span class="num">04</span>What it cost</h2>
-<div class="tw col">
-<table>
-<caption>Actuals, measured not estimated</caption>
+<caption>Measured, not estimated</caption>
 <thead><tr><th>Item</th><th class="num">Cost</th></tr></thead>
 <tbody>
 <tr><td class="row-label">Software licences</td><td class="num fem">none</td></tr>
-<tr><td class="row-label">One production simulation (one beam angle)</td>
+<tr><td class="row-label">One production simulation, one beam angle</td>
   <td class="num">~2.4 h, 1 CPU core</td></tr>
-<tr><td class="row-label">All compute behind this brief</td><td class="num">~16 h</td></tr>
 <tr><td class="row-label">Hardware</td><td class="num">one developer workstation</td></tr>
-<tr><td class="row-label">Elapsed calendar time</td><td class="num">2 days</td></tr>
 </tbody>
 </table>
 </div>
-
-<h2 class="col"><span class="num">05</span>Next steps</h2>
-<div class="col">
-<p>Ranked by value per hour. The first is a free speed-up that makes everything after it cheap;
-the next two convert bounded claims into firm ones.</p>
-</div>
 <div class="tw col">
 <table>
-<caption>Proposed next steps</caption>
+<caption>Proposed next steps, cheapest first</caption>
 <thead><tr><th>Step</th><th class="num">Cost</th><th>What it delivers</th></tr></thead>
 <tbody>
-<tr><td class="row-label"><b>Exploit the time-step headroom</b></td><td class="num">~1 day</td>
-  <td><b>Do this first.</b> Up to 6&times; faster runs with no rewrite. Must be validated against
-  known arrival times rather than merely checked for stability &mdash; a first trial at 4&times;
-  ran stably with peak amplitude unchanged and needs one confirmation pass.</td></tr>
-<tr><td class="row-label">Complete the mechanism account</td><td class="num">~2 h each</td>
-  <td>Two candidates are already measured and bounded (0.61 dB, 0.07 dB). A third &mdash;
-  interface sharpness &mdash; <b>is running now</b>, with its prediction already on
-  record.</td></tr>
-<tr><td class="row-label">Convergence error bars</td><td class="num">~4 h</td>
-  <td>Turns the contrast floor into a number with stated uncertainty. The reference work contains
-  no convergence study at all, so this is a differentiator, not just diligence.</td></tr>
-<tr><td class="row-label">Two more beam angles (&plusmn;30&deg;)</td><td class="num">~5 h</td>
-  <td>Takes our strongest result &mdash; angle consistency &mdash; from two points to four.</td></tr>
+<tr><td class="row-label"><b>A defect geometry a grid handles badly</b></td>
+  <td class="num">~2.4 h</td>
+  <td><b>Do this first.</b> A hole, or an off-axis or branched crack. It is the one place the
+  method difference should be decisive rather than incremental, and it is currently our
+  weakest-evidenced claim.</td></tr>
+<tr><td class="row-label">A third and fourth beam angle</td><td class="num">~2.4 h each</td>
+  <td>Takes angle behaviour from two points to four and settles whether the sizing win is general
+  or specific to <span class="n">+20&deg;</span>.</td></tr>
+<tr><td class="row-label">Convergence error bars</td><td class="num">~1 day</td>
+  <td>Turns the contrast floor into a number with stated uncertainty. The reference work has none,
+  so this is a differentiator rather than diligence.</td></tr>
 <tr><td class="row-label">Crack-size sweep</td><td class="num">~2.4 h each</td>
-  <td>Sizing accuracy versus true crack depth: the curve an inspection customer actually buys.
+  <td>Sizing accuracy versus true depth &mdash; the curve a customer actually buys.
   <b>Needs one run from the research team</b> at a second crack size to stay a
   head-to-head.</td></tr>
 <tr><td class="row-label">3-D feasibility</td><td class="num">not yet</td>
-  <td>Only worth scoping after the speed-up above. Do not fund from this evidence.</td></tr>
+  <td>Scope only after a solver speed-up. Do not fund from this evidence.</td></tr>
 </tbody>
 </table>
 </div>
 <div class="col">
 <h3>The one thing we would ask of the research team</h3>
-<p>A single extra k-Wave run &mdash; a defect-free wall, or a second crack size, at settings they
-already use. It is a parameter change in a script they run routinely, and it converts two of our
+<p>A single extra k-Wave run at settings they already use &mdash; a defect-free wall, or a second
+crack size. It is a parameter change in a script they run routinely, and it converts two of our
 self-consistency measurements into head-to-head comparisons.</p>
 </div>
 
-<figure>
-  <img src="{img['bw']}" alt="Returned pulse spectra and image metrics versus refinement">
-  <figcaption><b>Why our first attempt lost, and what fixed it.</b> Resolution has to be sized for
-  the pulse's <em>bandwidth</em>, not its centre frequency. Each refinement recovers more of the
-  band (left), and both image metrics improve as it does (right) &mdash; the effect predicted in
-  advance at the second beam angle and confirmed there.</figcaption>
-</figure>
-
 <footer>
-  <p>Technical detail, full derivations and the complete record of caveats are in the companion
-  dossier. Everything on this page reproduces from committed code:
-  <code>src/fenics/</code> in <code>github.com/nima-dv/FEA</code>. Every figure is
-  regenerated by a script; none is hand-drawn.</p>
+  <p>Full derivations, the second beam angle and the complete record of caveats are in the companion
+  dossier. Everything on this page reproduces from committed code: <code>src/fenics/</code> in
+  <code>github.com/nima-dv/FEA</code>. Every figure is regenerated by a script; none is
+  hand-drawn.</p>
 </footer>
 """

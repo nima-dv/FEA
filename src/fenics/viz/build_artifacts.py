@@ -174,6 +174,13 @@ hr{border:0; border-top:1px solid var(--rule-soft); margin:40px 0}
 
 /* tables */
 .tw{overflow-x:auto; margin:18px 0 26px; border:1px solid var(--rule); background:var(--surface)}
+.eq{
+  font-family:var(--mono); font-size:15px; text-align:center;
+  background:var(--sunk); border:1px solid var(--rule-soft);
+  padding:14px 18px; margin:18px 0; overflow-x:auto; line-height:2.1;
+}
+.eq .lbl{display:block; font-family:var(--body); font-size:12.5px; color:var(--ink-faint);
+  text-transform:uppercase; letter-spacing:.08em; margin-top:6px}
 table{border-collapse:collapse; width:100%; font-size:14.5px}
 caption{
   caption-side:top; text-align:left; padding:13px 16px 11px; color:var(--ink-soft);
