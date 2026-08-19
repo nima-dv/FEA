@@ -12,8 +12,11 @@ SCENARIO (see C:/code/readme/rnd-nima-fea-README.md section 3)
   record PRESSURE at the element faces to 60 us
 
 NUMERICS
-  degree-3 GLL spectral elements (low dispersion -> accurate ARRIVAL TIMES, which is
-  the stated priority: timing >> amplitude), row-sum lumped mass, explicit leapfrog.
+  GLL spectral elements (low dispersion -> accurate ARRIVAL TIMES, which is the stated
+  priority: timing >> amplitude); --degree defaults to 3, every published run uses 4.
+  Row-sum lumped mass: the mesh is QUADS, so on the tensor-product GLL basis the row sum
+  IS the exact classical SEM diagonal mass (verified to 7e-17 against the GLL weights).
+  Explicit leapfrog.
   Monolithic single-displacement field with mu = 0 in the water: the fluid stiffness
   reduces to the volumetric lambda*div(u)div(v) term, which IS the acoustic wave, and
   displacement/traction continuity at the ID is then automatic. Validated separately
