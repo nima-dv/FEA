@@ -224,27 +224,30 @@ highlighted value in each pair is the more accurate one.</p>
   <td class="num">0.413 mm</td><td class="num fem">0.165 mm</td>
   <td class="num">0.332 mm</td><td class="num fem">0.084 mm</td></tr>
 <tr><td class="row-label">Imaged notch extent (4.0 mm)</td>
-  <td class="num">3.23 (&minus;19%)</td><td class="num fem">3.73 (&minus;6.8%)</td>
-  <td class="num">6.33 (+58%)</td><td class="num fem">3.85 (&minus;3.8%)</td></tr>
+  <td class="num">3.48 (&minus;13%)</td><td class="num fem">3.73 (&minus;6.8%)</td>
+  <td class="num kw">3.85 (&minus;3.8%)</td><td class="num tie">3.85 &mdash; tie</td></tr>
 <tr><td class="row-label">Crack / clutter, RMS</td>
-  <td class="num">22.8 dB</td><td class="num fem">24.0 dB</td>
-  <td class="num">23.1 dB</td><td class="num fem">24.0 dB</td></tr>
+  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td>
+  <td class="num">24.5 dB</td><td class="num fem">26.3 dB</td></tr>
 <tr><td class="row-label">Crack / clutter, 95th percentile</td>
-  <td class="num">16.6 dB</td><td class="num fem">17.0 dB</td>
-  <td class="num kw">17.0 dB</td><td class="num tie">16.9 dB &mdash; tie</td></tr>
+  <td class="num">17.9 dB</td><td class="num fem">18.9 dB</td>
+  <td class="num">18.4 dB</td><td class="num fem">18.9 dB</td></tr>
 <tr><td class="row-label">Crack / worst clutter</td>
-  <td class="num">10.3 dB</td><td class="num fem">12.2 dB</td>
-  <td class="num">9.8 dB</td><td class="num fem">10.4 dB</td></tr>
+  <td class="num">11.6 dB</td><td class="num fem">14.1 dB</td>
+  <td class="num">11.8 dB</td><td class="num fem">13.5 dB</td></tr>
 </tbody>
 </table>
 </div>
 <div class="col">
 <p>Nine of ten cells favour us. The tenth is a tie we are not dressing up: at
-<span class="n">&minus;20&deg;</span> our 95th-percentile contrast is
-<span class="n">0.1</span> dB behind theirs.</p>
+<span class="n">&minus;20&deg;</span> both models size the notch at
+<span class="n">3.85</span> mm exactly.</p>
 <p>A single brightness threshold can flatter anybody, so every geometric claim was re-measured
 across every reasonable analysis choice &mdash; six thresholds, four region widths, five
-clutter guard distances. <strong>We are closer to truth in 29 of 30.</strong></p>
+clutter guard distances. <strong>We are better in 25 of 30</strong>, and the part that is
+<em>unanimous</em> is contrast: 10 of 10, both angles, every guard distance. The five we do not
+win are all notch extent at <span class="n">&minus;20&deg;</span> &mdash; two ties and two
+thresholds where k-Wave is nearer truth.</p>
 </div>
 <figure>
   <img src="{img['p20']}" alt="k-Wave, FEM, and a defect-free FEM wall at +20 degrees">
@@ -277,13 +280,18 @@ clutter guard distances. <strong>We are closer to truth in 29 of 30.</strong></p
 
 <div class="verdict col">
   <span class="kicker">The result we would lead with</span>
-  <p>Our sizing barely moves with steering angle and theirs changes by a factor of two:
+  <p>Our sizing moves less with steering angle than theirs:
   <span class="n">3.73</span> and <span class="n">3.85</span> mm against their
-  <span class="n">3.23</span> and <span class="n">6.33</span> mm &mdash; a
-  <strong><span class="n">3%</span> spread against <span class="n">96%</span></strong>. Both
-  datasets pass through the same imaging chain, so an imaging quirk would move both equally.
-  This asymmetry is in their forward model, and the notch is on-axis with symmetric geometry,
-  so nothing in the scenario produces it.</p>
+  <span class="n">3.48</span> and <span class="n">3.85</span> mm &mdash; a
+  <strong><span class="n">3%</span> spread against <span class="n">11%</span></strong>. Both
+  datasets pass through the same imaging chain, so an imaging quirk would move both equally.</p>
+  <p class="fine"><strong>We corrected this claim ourselves, and it is worth saying so.</strong>
+  An earlier version read 3% against <span class="n">96%</span>. Auditing our wrapper against the
+  research team's own beamforming script line by line showed we were not passing the migration
+  anti-aliasing they pass on every call. Enabling it repaired <em>their</em>
+  <span class="n">&minus;20&deg;</span> sizing from <span class="n">6.33</span> to
+  <span class="n">3.85</span> mm and cut our own claimed advantage eightfold. The remaining
+  advantage is real; the original was mostly our defect.</p>
   <p>For an inspection tool this matters more than any decibel figure. A real crack is never
   conveniently on-axis, and a sizing error that swings with beam angle is one you cannot
   calibrate away.</p>
@@ -300,10 +308,10 @@ still lands at whatever depth its arrival time implies. The standard is unforgiv
 <strong>a defect-free steel wall must image black.</strong></p>
 <p><strong>Neither image is black &mdash; and ours is the cleaner of the two.</strong> Absolute
 levels are not comparable (they drive a 2e-6 velocity source, we apply unit traction), so only
-within-image ratios mean anything. Crack against clutter RMS: <span class="fem n">24.0</span> dB
-for us against <span class="kw n">22.8</span> dB for them. Crack against the single worst clutter
-pixel: <span class="fem n">12.2</span> against <span class="kw n">10.3</span> dB. Unanimous over
-all five guard distances tested.</p>
+within-image ratios mean anything. Crack against clutter RMS: <span class="fem n">26.5</span> dB
+for us against <span class="kw n">24.0</span> dB for them. Crack against the single worst clutter
+pixel: <span class="fem n">14.1</span> against <span class="kw n">11.6</span> dB. Unanimous over
+all five guard distances tested, at both angles.</p>
 <p><strong>Ours nonetheless looks dirtier, and that part is presentation.</strong> These panels
 use a <span class="n">&minus;40</span> dB log scale; their published images are linear min-max.
 Our clutter 95th percentile is <span class="n">0.0258</span> against a crack peak of
@@ -391,6 +399,10 @@ be real rather than fitted: contrast <span class="n">23&ndash;25</span> dB, exte
 mean reporting the win as one angle only. It came back at <strong><span class="n">24.0</span>
 dB and <span class="n">3.85</span> mm</strong>, both inside the range. That is the difference
 between an explanation and a story.</p>
+<p class="fine">Those were the numbers on the imaging chain in use when the prediction was
+recorded, which is the honest way to score a prediction. On the chain adopted later the same
+solve reads <span class="n">26.3</span> dB &mdash; sizing identical, contrast above the predicted
+band because the correction lifted both models.</p>
 </div>
 
 <h2 class="col"><span class="num">09</span>Two candidate explanations, both eliminated</h2>
@@ -429,14 +441,15 @@ be got wrong.</p>
     <p>Unanimous across analysis choices, and converged: 8.07 &rarr; 3.85 &rarr; 3.73 mm, the
     last refinement moving it 0.12 mm.</p></div></div>
   <div class="claim"><span class="tag yes">Solid</span><div>
-    <p>Angle consistency &mdash; 3% spread against their 96%.</p>
-    <p>Shared imaging chain, so it is attributable to the forward model.</p></div></div>
+    <p>Angle consistency &mdash; 3% spread against their 11%.</p>
+    <p>Shared imaging chain, so it is attributable to the forward model. Revised down from a
+    claimed 96% after we found the inflation was our own imaging defect.</p></div></div>
   <div class="claim"><span class="tag yes">Solid</span><div>
     <p>The physics is right to about 1%.</p>
     <p>Four exact-solution tests, no fitted parameters. The reference work has no
     equivalent.</p></div></div>
   <div class="claim"><span class="tag part">Bounded</span><div>
-    <p>Contrast advantage of +1.2 dB.</p>
+    <p>Contrast advantage of +2.4 dB, unanimous 10/10.</p>
     <p>A <b>lower bound only</b> &mdash; still improving at our last refinement, so the
     converged value is unknown. No Richardson error bars computed.</p></div></div>
   <div class="claim"><span class="tag part">Bounded</span><div>
@@ -528,10 +541,11 @@ temporal dispersion, and timing accuracy is the whole point of this simulation.<
     <span>0.81% mode conversion, ~1% defect scattering, no fitted parameters.
     <em>zoeppritz/amplitude.png + cavity_scattering/dscf_vs_exact.png</em></span></div></div>
   <div class="slide"><div><b>Head-to-head</b>
-    <span>The two-angle table; 29/30 robustness checks.
+    <span>The two-angle table; 25/30 robustness checks, contrast 10/10.
     <em>table + compare/compare_p20deg.png</em></span></div></div>
   <div class="slide"><div><b>The result to lead with</b>
-    <span>Sizing spread 3% against 96% across angle. <em>two-row table</em></span></div></div>
+    <span>Sizing spread 3% against 11% across angle, and how we corrected it.
+    <em>two-row table</em></span></div></div>
   <div class="slide"><div><b>The crack is real</b>
     <span>A defect-free wall images empty; the difference isolates the crack.
     <em>compare/baseline_subtract_20deg.png</em></span></div></div>

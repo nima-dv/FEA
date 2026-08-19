@@ -56,7 +56,8 @@ with the physically correct traction-free surface.
 ## 5. Making it a fair fight
 
 **Say:** We run **their** beamformer on **our** data. Their imaging code is a Python package in
-the research team's repository and we call it directly, unmodified, on both datasets.
+the research team's repository and we call it directly, unmodified, on both datasets - with the
+same options their own simulation script passes, which we audited line by line and corrected.
 
 **The point - this is the strongest design decision in the project:** because the imaging half is
 identical for both, any difference in the final image is attributable to the forward solver alone.
@@ -83,14 +84,14 @@ measurable rather than a matter of opinion.
 
 | metric (truth) | k-Wave +20 | **FEM +20** | k-Wave -20 | **FEM -20** |
 |---|---|---|---|---|
-| crack depth (4.0 mm) | 3.23 (-19%) | **3.73 (-6.8%)** | 6.33 (+58%) | **3.85 (-3.8%)** |
+| crack depth (4.0 mm) | 3.48 (-13%) | **3.73 (-6.8%)** | 3.85 (-3.8%) | **3.85 (-3.8%)** |
 | crack position error | 0.41 mm | **0.16 mm** | 0.33 mm | **0.08 mm** |
-| crack / clutter RMS | 22.8 dB | **24.0** | 23.1 dB | **24.0** |
-| crack / worst clutter | 10.3 dB | **12.2** | 9.8 dB | **10.4** |
+| crack / clutter RMS | 24.0 dB | **26.5** | 24.5 dB | **26.3** |
+| crack / worst clutter | 11.6 dB | **14.1** | 11.8 dB | **13.5** |
 
-**FEM better in 29 of 30 robustness checks** across both angles. The one exception is a tie:
-p95 contrast at -20 degrees, where we are 0.1 dB behind. Say so - it costs nothing and buys
-credibility for everything else.
+**FEM better in 25 of 30 robustness checks** across both angles. Lead with the part that is
+unanimous: **contrast, 10/10** at both angles and every guard distance. Sizing is 15/20 - we win
++20 deg outright, and -20 deg is an exact tie at 3.85 mm. Say the tie out loud.
 
 *Figure: `compare/compare_p20deg.png`*
 
@@ -98,16 +99,21 @@ credibility for everything else.
 
 | notch depth, true 4.0 mm | +20 deg | -20 deg | spread |
 |---|---|---|---|
-| k-Wave | 3.23 | 6.33 | **96%** |
+| k-Wave | 3.48 | 3.85 | **11%** |
 | **FEM** | 3.73 | 3.85 | **3%** |
 
-**Say:** Their sizing changes by a factor of two when the beam angle flips. Ours moves 3%. Both
-datasets go through the same imaging chain, so an imaging quirk would move both equally - this
-asymmetry is in their forward model.
+**Say:** Their sizing moves 11% when the beam angle flips; ours moves 3%. Both datasets go
+through the same imaging chain, so an imaging quirk would move both equally.
 
-**The point:** for a real inspection tool this matters more than any single decibel figure. A real
-crack is never conveniently on-axis, and a sizing error that swings with beam angle is one you
-cannot calibrate away.
+**Say this too - it is the most credible thing on the slide.** An earlier version of this table
+claimed 96% against 3%. We found the cause: our wrapper was not passing the migration
+anti-aliasing that their own script passes. Fixing it repaired *their* -20 deg number from
+6.33 mm to 3.85 mm and cut our own claimed advantage by a factor of eight. We corrected it before
+presenting it. A team that audits its own favourite result is a team you can trust with the rest.
+
+**The point:** a 3.7x advantage in angle-consistency is still the right thing to care about. A
+real crack is never conveniently on-axis, and a sizing error that swings with beam angle is one
+you cannot calibrate away.
 
 ## 9. Prediction, then test - why this is science
 
@@ -134,24 +140,31 @@ headroom, but not zero.
 
 **Say:** An artifact is brightness where nothing real exists. The standard is that a defect-free
 steel wall must image black. **Neither image is black - and ours is the cleaner of the two**
-(24.0 vs 22.8 dB crack-to-clutter, 12.2 vs 10.3 dB against the worst pixel).
+(26.5 vs 24.0 dB crack-to-clutter, 14.1 vs 11.6 dB against the worst pixel), unanimously at both
+angles and every guard distance.
 
 **Why ours nonetheless looks dirtier:** we plot on a -40 dB **log** scale; their published images
 are **linear** min-max. Our clutter sits at 14% of the crack peak - a faint grey on a linear
 scale, mid-palette bright on log. Same data.
 
-**Concede honestly:** our absorbing boundary is a first-order dashpot, not a PML, so some energy
-reflects back in. We built two fixes for it - a correctly shear-matched dashpot and a graded
-sponge - and **measured that neither changed the artifact.** The boundary is not the cause. We
-can say what it is not; we cannot yet say what it is. One
-artifact is definitely not ours: the bright patch at x = 70-85 mm appears in **both** images.
+**Concede honestly:** we have eliminated four candidate causes by measurement - the absorbing
+boundary (two independent fixes), mesh coarsening, sample-rate aliasing, and the mass matrix.
+A fifth, migration-operator aliasing, removed most of the excess at +20 deg but not at -20 deg,
+so it contributes without explaining. **We can say what it is not; we cannot yet say what it is**,
+and it is worse at -20 deg (+3.5 dB) than at +20 deg (+0.5 dB).
+
+**One artifact is definitely not ours, and we can derive it:** the array pitch is 0.30 mm and
+their own script's no-grating-lobe limit at 20 degrees steering is 0.279 mm. A full-amplitude
+alias of the main lobe therefore exists by array geometry alone, in both simulations. Their code
+also notes it cannot be removed by apodization.
 
 ## 12. What we cannot claim
 
 **Say this slide out loud. It is what makes the rest believable.**
 
 - **Sizing: solid.** Converged and unanimous across analysis choices.
-- **Contrast: a win, but a lower bound.** Still improving with refinement; +1.2 dB is not settled.
+- **Contrast: the strongest claim, and a lower bound.** Unanimous 10/10 across both angles;
+  still improving with refinement, so +2.4 dB is a floor, not a settled value.
 - **Position: sub-pixel, not "2.5x better".** Our own value moved 0.24 mm between meshes and the
   image pixel is 0.248 mm. Quote it as "sub-pixel, <= 0.25 mm against their 0.41 mm".
 - **Why we beat them is OPEN.** We tested both candidate explanations inside our own solver:
@@ -172,7 +185,8 @@ Costed next steps, cheapest first:
 
 | step | cost | buys |
 |---|---|---|
-| Find the real cause of the edge clutter | days | it is the only place we lose to k-Wave; boundary and mesh-coarsening are both ruled out |
+| Find the real cause of the edge clutter | days | the only place we lose; four causes now ruled out by measurement, and it is worse at -20 deg than +20 |
+| A third angle, to settle sizing | ~2.4 h | sizing is 15/20 and tied at -20 deg; n=2 cannot separate a real edge from a coincidence |
 | Ask research team for a defect-free k-Wave run | their time | the cleanest possible clutter-floor comparison |
 | Third and fourth steering angles | ~2.4 h each | strengthens the angle-consistency claim |
 | Convergence / GCI error bars | ~1 day compute | publishable numbers **with uncertainty**, which theirs do not have |

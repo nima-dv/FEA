@@ -47,9 +47,18 @@ crack-detection sim. Pure Python in Docker.
   Update it whenever the understanding changes.
 - **Pitch talking points, slide by slide:** `PITCH.md`.
 
-**No default FEM configuration is fixed yet.** `legacy boundary` is what every published figure
-uses; `--abc-legacy` and `--sponge-mm` variants are experiments, not defaults. Do not quietly
-adopt one.
+**Imaging chain: FIXED.** The `faithfulbf` preset in `lib/tt_t_image.py` is the published
+baseline as of 2026-08-19 - it matches the options the research team's own
+`beamforming_script_simulation.py` passes. `--chain legacy` is frozen and is the only way to
+reproduce anything published before then. Untagged result filenames always mean the current
+baseline; see `results/compare/NAMING.md`.
+
+**FEM boundary treatment: still open.** `legacy boundary` is what every published figure uses;
+`--abc-legacy` and `--sponge-mm` variants are experiments, not defaults. Do not quietly adopt one.
+
+Five candidate causes of the edge clutter are eliminated by measurement; none is the cause. Before
+proposing a sixth, read section 4.16-4.18 of the branch README - a repeat of a dead hypothesis
+costs a 2.4 h solve.
 
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
 Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current

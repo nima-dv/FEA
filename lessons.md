@@ -322,7 +322,8 @@ add coherently - that is what makes the cancellation work. Transmit travel times
 ray shooting; receive travel times from a ray search.
 
 **The crucial move: we run THEIR beamformer, not a reimplementation.** Their imaging code is a
-Python package in the research team's repository, called directly and unmodified on both datasets.
+Python package in the research team's repository, called directly and unmodified on both datasets,
+with the same options their own simulation script passes.
 
 ```
 their k-Wave solver --+

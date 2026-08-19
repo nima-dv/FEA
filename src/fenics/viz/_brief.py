@@ -60,17 +60,17 @@ imaging code, forward simulation the only difference.</caption>
   <th class="num">k-Wave &minus;20&deg;</th><th class="num">Ours &minus;20&deg;</th></tr></thead>
 <tbody>
 <tr><td class="row-label">Crack sizing error (4.0 mm deep)</td>
-  <td class="num">&minus;19%</td><td class="num fem">&minus;6.8%</td>
-  <td class="num">+58%</td><td class="num fem">&minus;3.8%</td></tr>
+  <td class="num">&minus;13%</td><td class="num fem">&minus;6.8%</td>
+  <td class="num kw">&minus;3.8%</td><td class="num tie">&minus;3.8% &mdash; tie</td></tr>
 <tr><td class="row-label">Crack position error (38.25 mm)</td>
   <td class="num">0.413 mm</td><td class="num fem">0.165 mm</td>
   <td class="num">0.332 mm</td><td class="num fem">0.084 mm</td></tr>
 <tr><td class="row-label">Crack visibility over clutter (RMS)</td>
-  <td class="num">22.8 dB</td><td class="num fem">24.0 dB</td>
-  <td class="num">23.1 dB</td><td class="num fem">24.0 dB</td></tr>
+  <td class="num">24.0 dB</td><td class="num fem">26.5 dB</td>
+  <td class="num">24.5 dB</td><td class="num fem">26.3 dB</td></tr>
 <tr><td class="row-label">Crack visibility, worst-case clutter</td>
-  <td class="num">10.3 dB</td><td class="num fem">12.2 dB</td>
-  <td class="num">9.8 dB</td><td class="num fem">10.4 dB</td></tr>
+  <td class="num">11.6 dB</td><td class="num fem">14.1 dB</td>
+  <td class="num">11.8 dB</td><td class="num fem">13.5 dB</td></tr>
 </tbody>
 </table>
 </div>
@@ -96,12 +96,16 @@ imaging code, forward simulation the only difference.</caption>
 
 <div class="verdict col">
   <span class="kicker">WIN 2 &mdash; the number to remember</span>
-  <p>Our sizing barely changes with beam angle. Theirs changes by a factor of two.</p>
+  <p>Our sizing changes less with beam angle than theirs.</p>
   <p><span class="n">3.73</span> and <span class="n">3.85</span> mm against their
-  <span class="n">3.23</span> and <span class="n">6.33</span> mm &mdash; a
-  <strong><span class="n">3%</span> spread against <span class="n">96%</span></strong>, on a
+  <span class="n">3.48</span> and <span class="n">3.85</span> mm &mdash; a
+  <strong><span class="n">3%</span> spread against <span class="n">11%</span></strong>, on a
   symmetric geometry with an on-axis crack. Both datasets pass through the same imaging chain, so
   an imaging quirk would move both equally; this sits in the forward model.</p>
+  <p class="fine">This claim used to read 3% against <span class="n">96%</span>. We audited our
+  own imaging wrapper against the research team's script, found we were omitting an anti-aliasing
+  option they always pass, and fixing it repaired <em>their</em> weakest number. We cut our own
+  headline by a factor of eight rather than ship it unverified.</p>
   <p><strong>A sizing error that swings with beam angle cannot be calibrated away</strong>, and
   real cracks are never conveniently on-axis. For an inspection product this is worth more than
   any single decibel figure.</p>
@@ -133,7 +137,9 @@ full range of analysis choices, at both angles.</caption>
   recorded the range it had to produce &mdash; contrast <span class="n">23&ndash;25</span> dB,
   sizing <span class="n">3.7&ndash;4.2</span> mm &mdash; and stated that anything materially worse
   would mean reporting the win as one angle only. It came back at
-  <strong><span class="n">24.0</span> dB and <span class="n">3.85</span> mm.</strong></p>
+  <strong><span class="n">24.0</span> dB and <span class="n">3.85</span> mm</strong> on the
+  imaging chain in use at the time &mdash; the honest way to score a prediction. On the chain
+  adopted later, sizing is identical and contrast reads <span class="n">26.3</span> dB.</p>
   <p>Two further predictions were recorded before their experiments ran, and both landed. A
   benchmark that only ever confirms its author is not a benchmark &mdash; this one was set up so
   it could fail, in writing, three times.</p>
@@ -197,11 +203,13 @@ resolution deviates by roughly <span class="n">140</span> &micro;m.</p>
     true 4.0 &mdash; far worse than k-Wave. The cause was our own mesh, sized for the pulse's
     centre frequency instead of its bandwidth. Fixing that produced every result above.</p></div></div>
   <div class="claim"><span class="tag part">Tied</span><div>
-    <p>95th-percentile contrast at &minus;20&deg;: 16.9 dB against their 17.0.</p>
-    <p>A 0.1 dB deficit. Recorded as a tie, not dressed up as a win.</p></div></div>
+    <p>Sizing at &minus;20&deg;: 3.85 mm each, an exact tie.</p>
+    <p>Our sizing win is a <span class="n">+20&deg;</span> win. Do not state it as an
+    every-angle win.</p></div></div>
   <div class="claim"><span class="tag part">Lost</span><div>
-    <p>One of thirty robustness checks.</p>
-    <p>At a 40% brightness threshold, k-Wave's sizing is closer to truth than ours.</p></div></div>
+    <p>Five of thirty robustness checks.</p>
+    <p>All five are notch extent at &minus;20&deg; &mdash; two ties, and two brightness
+    thresholds where k-Wave sizes nearer truth. Contrast remains 10/10.</p></div></div>
   <div class="claim"><span class="tag no">Cannot claim</span><div>
     <p>Nothing at all at 0&deg; beam angle.</p>
     <p>The imaging mode is a half-skip shear path, and normal incidence generates almost no mode
@@ -209,7 +217,7 @@ resolution deviates by roughly <span class="n">140</span> &micro;m.</p>
     throughout.</p></div></div>
   <div class="claim"><span class="tag part">Bounded</span><div>
     <p>The contrast advantage is a floor, not a converged number.</p>
-    <p>It was still improving when we stopped refining. Quote "at least 1.2 dB". Quote the
+    <p>It was still improving when we stopped refining. Quote "at least 2.4 dB". Quote the
     position advantage as "within a quarter of a millimetre" rather than as a ratio &mdash; it
     sits at the imaging grid's pixel limit.</p></div></div>
   <div class="claim"><span class="tag no">Lost</span><div>
