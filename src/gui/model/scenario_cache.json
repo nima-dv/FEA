@@ -1,0 +1,51 @@
+{
+  "geometry": {
+    "r_id": 193.675,
+    "r_od": 203.2,
+    "wall": 9.524999999999977,
+    "x_c": 38.25,
+    "z_c": -173.675,
+    "standoff": 20.0
+  },
+  "array": {
+    "n_elem": 256,
+    "pitch": 0.3,
+    "kerf": 0.05,
+    "aperture": 76.5,
+    "x0": 0.0,
+    "f0": 4000000.0,
+    "n_cycle": 1
+  },
+  "materials": {
+    "c_P": 5700.0,
+    "c_S": 3100.0,
+    "rho_s": 7850.0,
+    "c_f": 1500.0,
+    "rho_f": 1000.0
+  },
+  "notch": {
+    "x": 38.25,
+    "depth": 4.0,
+    "width": 1.0
+  },
+  "mesh_h": {
+    "water": 0.28,
+    "steel": 0.56,
+    "notch": 0.3,
+    "array": 0.09,
+    "stair": 0.05
+  },
+  "domain": {
+    "x_min": -8.0,
+    "x_max": 85.0,
+    "x_limit_lo": -47.46464285639881,
+    "x_limit_hi": 123.96464285639881
+  },
+  "time": {
+    "t_end": 6e-05,
+    "cfl": 0.3,
+    "dt_kwave": 2.631578947368421e-09,
+    "n_samp_kwave": 22801
+  },
+  "frozen_agrees": true
+}

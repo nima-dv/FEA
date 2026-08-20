@@ -128,61 +128,142 @@ class QueueView(QWidget):
 
     # ---- runner wiring -----------------------------------------------------------------
     def attach_runner(self, runner: Any = None) -> list[str]:
-        """Connect to a Runner if one can be had. Returns the signal names connected.
+        """Connect to core.runner.Runner. Returns the signal names actually connected.
 
-        `runner=None` means "import core.runner and use its singleton/class if it exists".
-        Everything is guarded: this pane is useful with no runner at all, so a missing module
-        or a renamed signal costs live updates, not the window.
+        `runner=None` means "look for a shared instance on the main window", because main.py
+        owns the single Runner and builds this view with no arguments. Every step is guarded:
+        with core/runner.py absent, or a signal renamed, the pane loses live updates and
+        nothing else.
         """
         if runner is None:
-            try:
-                from core import runner as mod            # noqa: PLC0415 - lazy on purpose
-            except Exception:
-                return []
-            runner = getattr(mod, "RUNNER", None) or getattr(mod, "runner", None)
-            if runner is None:
-                return []
+            runner = _shared_runner(self)
+        if runner is None:
+            return []
+        self._runner = runner
         wired: list[str] = []
-        table = (
-            (("job_added", "job_queued", "queued", "job_started", "started"), self._slot_job),
-            (("job_updated", "job_changed", "state_changed", "job_finished", "finished"),
-             self._slot_job),
-            (("progress",), self._slot_progress),
-            (("job_log", "log", "output", "line", "stdout"), self._slot_log),
-        )
-        for names, slot in table:
-            for name in names:
-                sig = getattr(runner, name, None)
-                if sig is not None and hasattr(sig, "connect"):
-                    sig.connect(slot)
-                    wired.append(name)
-        cancel = getattr(runner, "cancel", None)
-        if callable(cancel):
-            self.cancel_requested.connect(cancel)
+        for name, slot in (("queue_changed", self.sync_from_runner),
+                           ("job_started", self._slot_id),
+                           ("job_finished", self._slot_id),
+                           ("job_progress", self._slot_progress),
+                           ("job_log", self.append_log)):
+            sig = getattr(runner, name, None)
+            if sig is not None and hasattr(sig, "connect"):
+                sig.connect(slot)
+                wired.append(name)
+        if callable(getattr(runner, "cancel", None)):
+            self.cancel_requested.connect(runner.cancel)
+        self.sync_from_runner()
         return wired
 
-    # Runner signals arrive either as (job,) or as (job_id, payload); both shapes are handled
-    # so the pane does not depend on which one core/runner.py settles on.
-    def _slot_job(self, *args: Any) -> None:
-        for a in args:
-            if isinstance(a, Mapping) or hasattr(a, "job_id"):
-                self.upsert(a)
-                return
+    def showEvent(self, ev) -> None:  # noqa: ANN001
+        """Best-effort self-attach the first time the pane is shown.
 
-    def _slot_progress(self, *args: Any) -> None:
-        jid = next((a for a in args if isinstance(a, str)), None)
-        payload = next((a for a in args if isinstance(a, Mapping)), None)
-        if jid is not None and payload is not None:
-            self.update_progress(jid, payload)
-        else:
-            self._slot_job(*args)
+        main.py builds views with no arguments and wires only run_requested/queue_requested,
+        so without this the queue pane would sit empty next to a running solve. An explicit
+        `attach_runner(runner)` from the shell is still the preferred wiring; this is the
+        fallback that makes the pane work without editing another stream's file.
+        """
+        if not getattr(self, "_runner", None):
+            self.attach_runner()
+        super().showEvent(ev)
 
-    def _slot_log(self, *args: Any) -> None:
-        texts = [a for a in args if isinstance(a, str)]
-        if len(texts) >= 2:
-            self.append_log(texts[0], texts[-1])
-        elif texts and len(self._cards) == 1:            # single-job runner, no id in the signal
-            self.append_log(next(iter(self._cards)), texts[0])
+    def sync_from_runner(self, *_: Any) -> None:
+        """Rebuild every card's state from runner.jobs().
+
+        queue_changed carries no payload by design (the runner hands out ids, not Job objects,
+        so a view cannot mutate queue state), so the pane re-reads the list. Cards are upserted
+        rather than recreated, which is what keeps each card's log tail and progress alive.
+        """
+        runner = getattr(self, "_runner", None)
+        jobs = getattr(runner, "jobs", None)
+        if not callable(jobs):
+            return
+        for job in jobs():
+            self.upsert(view_from_job(job))
+
+    def _slot_id(self, job_id: str, *_: Any) -> None:
+        """job_started / job_finished carry only the id; the details come from the runner."""
+        runner = getattr(self, "_runner", None)
+        job = runner.job(job_id) if runner is not None and hasattr(runner, "job") else None
+        self.upsert(view_from_job(job) if job is not None
+                    else JobView(job_id=job_id, state="running"))
+
+    def _slot_progress(self, job_id: str, progress: Any) -> None:
+        """job_progress carries a logparse.Progress (fraction 0..1, detail, ms/step, ETA)."""
+        if progress is None:                     # a line the parser did not understand
+            return
+        if isinstance(progress, Mapping):
+            self.update_progress(job_id, progress)
+            return
+        frac = getattr(progress, "fraction", None)
+        self.update_progress(job_id, {
+            "percent": None if frac is None else 100.0 * float(frac),
+            "detail": getattr(progress, "detail", "") or "",
+            "ms_per_step": getattr(progress, "ms_per_step", None),
+            "eta_s": (lambda m: None if m is None else 60.0 * float(m))(
+                getattr(progress, "eta_seconds", None)),
+        })
+
+
+def _shared_runner(widget: QWidget) -> Any:
+    """The app's single Runner, if the shell has one. Never constructs a second one.
+
+    A second Runner would mean two queues fighting over the same GPU and the same output
+    filenames, so this only ever borrows an existing instance.
+    """
+    win = widget.window()
+    for name in ("runner", "_runner_obj"):
+        got = getattr(win, name, None)
+        if got is not None and hasattr(got, "jobs"):
+            return got
+    factory = getattr(win, "_runner", None)      # main.py's lazy accessor
+    if callable(factory):
+        try:
+            return factory()
+        except Exception:
+            return None
+    return None
+
+
+def summarize_config(cfg: Any) -> str:
+    """One line of parameters, in the order a reader scans for them."""
+    if cfg is None:
+        return ""
+    g = lambda n, d=None: getattr(cfg, n, d)              # noqa: E731 - local shorthand
+    bits = []
+    if g("degree") is not None:
+        bits.append(f"deg {g('degree')}")
+    if g("scale") is not None:
+        bits.append(f"scale {g('scale'):.2f}")
+    if g("angle") is not None:
+        bits.append(f"{g('angle'):+.0f} deg")
+    if g("cfl") is not None:
+        bits.append(f"cfl {g('cfl'):.2f}")
+    for name in ("device", "notch", "artifact_reduction"):
+        v = g(name)
+        if v is not None:
+            bits.append(str(getattr(v, "value", v)))
+    if g("snapshots"):
+        bits.append(f"{g('snapshots')} snapshots")
+    return "  ".join(bits)
+
+
+def view_from_job(job: Any) -> JobView:
+    """core.runner.Job -> JobView. Reads only the public fields the runner documents."""
+    spec = getattr(job, "spec", None)
+    cfg = getattr(spec, "config", None)
+    state = getattr(getattr(job, "state", None), "value", str(getattr(job, "state", "queued")))
+    stage = getattr(getattr(spec, "stage", None), "value", "") or "job"
+    started, ended = getattr(job, "started", 0.0) or 0.0, getattr(job, "ended", None)
+    elapsed = None
+    if started:
+        elapsed = (ended if ended else time.time()) - started
+    label = getattr(spec, "label", "") or ""
+    summary = "   ".join(x for x in (label, summarize_config(cfg)) if x)
+    return JobView(job_id=getattr(job, "job_id", ""), stage=stage, state=state,
+                   summary=summary, elapsed_s=elapsed,
+                   ms_per_step=getattr(job, "ms_per_step", None),
+                   percent=100.0 if state == "succeeded" else None)
 
 
 def fake_jobs() -> list[JobView]:

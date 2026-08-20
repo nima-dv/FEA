@@ -40,7 +40,10 @@ class Notch(enum.Enum):
     PRESENT = "present"        # the 4 mm x 1 mm slot: the production case
     ABSENT = "absent"          # healthy wall. Every visible feature is then numerical.
     FILLED = "filled"          # slot filled with a soft solid instead of void
-    STAIRCASE = "staircase"    # slot rasterised onto a 50 um grid, to imitate a voxel model
+    # NOTE there is no STAIRCASE member. --staircase rasterises the INNER WALL ARC, not the
+    # notch, and it composes with --no-notch - the C4 experiment ran it on a healthy wall, so
+    # the mesh on disk is ili_mesh_healthy_stair_tri. It is a separate axis: see
+    # RunConfig.staircase_id.
 
 
 class ArtifactReduction(enum.Enum):
@@ -79,6 +82,10 @@ class RunConfig:
     quad: bool = True                  # quadrilaterals: makes row-sum lumping exact
     h_notch: float | None = None       # override the cell size at the notch, mm
     notch: Notch = Notch.PRESENT
+    # Rasterise the inner wall onto a 50 um pixel staircase, imitating how a Cartesian-grid
+    # code represents a curved boundary. This is the C4 experiment: the ONE variable that
+    # isolates "our mesh conforms" from everything else. Orthogonal to `notch`.
+    staircase_id: bool = False
 
     # --- solver
     degree: int = 4                    # polynomial order
@@ -102,6 +109,8 @@ class RunConfig:
         bits = [f"deg{self.degree}", f"s{self.scale:.2f}".replace(".", "p").rstrip("0")]
         if self.notch is not Notch.PRESENT:
             bits.append(self.notch.value)
+        if self.staircase_id:
+            bits.append("stair")
         if self.artifact_reduction is ArtifactReduction.SPONGE:
             bits.append("sponge")
         elif self.artifact_reduction is ArtifactReduction.WIDE_DOMAIN:
@@ -109,18 +118,35 @@ class RunConfig:
         bits.append(f"{sign}{abs(self.angle):.0f}deg")
         return GUI_TAG_PREFIX + "_".join(bits)
 
-    def mesh_name(self) -> str:
-        """The .msh the mesh stage will produce. Must match mesh/ili_mesh.py's own naming."""
-        n = "ili_mesh"
-        if self.scale != 1.0:
-            n += f"_s{self.scale:.1f}".replace(".", "p")
-        if self.notch is Notch.ABSENT:
-            n = n.replace("ili_mesh", "ili_mesh_healthy")
+    def mesh_stem(self) -> str:
+        """Mirror mesh/ili_mesh.py's own stem construction, in the same order.
+
+        This is duplicated logic and that is a liability, so it is pinned by demo() against
+        the real filenames sitting in data/results/ili_mesh. Getting it wrong is not cosmetic:
+        the forward stage passes this name to --mesh, so a mismatch means either "file not
+        found" or, far worse, solving on the wrong mesh.
+
+        The backend puts every variant-producing flag in the stem precisely so one variant
+        cannot overwrite another. Note `:g` formatting, not a fixed precision - `--scale 0.65`
+        is `_s0p65`, and rounding it to `_s0p7` would point at a different mesh.
+        """
+        stem = "ili_mesh" if self.notch is not Notch.ABSENT else "ili_mesh_healthy"
+        if abs(self.scale - 1.0) > 1e-9:
+            stem += f"_s{self.scale:g}".replace(".", "p")
         if self.artifact_reduction is ArtifactReduction.WIDE_DOMAIN:
-            n += "_w165"
+            stem += f"_w{WIDE_X_MAX - WIDE_X_MIN:.0f}"
+        if self.notch is Notch.FILLED:
+            stem += "_fill"
+        if self.staircase_id:
+            stem += "_stair"
         if not self.quad:
-            n += "_tri"
-        return n + ".msh"
+            stem += "_tri"
+        if self.h_notch is not None:
+            stem += f"_hn{self.h_notch:g}".replace(".", "p")
+        return stem
+
+    def mesh_name(self) -> str:
+        return self.mesh_stem() + ".msh"
 
 
 @dataclass(frozen=True)
@@ -144,7 +170,7 @@ def _mesh_argv(c: RunConfig) -> list[str]:
         a.append("--no-notch")
     elif c.notch is Notch.FILLED:
         a.append("--notch-fill")
-    elif c.notch is Notch.STAIRCASE:
+    if c.staircase_id:
         a.append("--staircase")
     if c.artifact_reduction is ArtifactReduction.WIDE_DOMAIN:
         a += ["--x-min", f"{WIDE_X_MIN}", "--x-max", f"{WIDE_X_MAX}"]
@@ -171,6 +197,14 @@ def _forward_argv(c: RunConfig) -> list[str]:
     return a
 
 
+def _figures_argv(c: RunConfig) -> list[str]:
+    """The wavefield animation. Only meaningful if the solve wrote snapshots."""
+    return ["python3", "-u", "viz/wavefield_gif.py",
+            "--in", f"results/ili_forward/wavefield_{c.tag()}.npz",
+            "--out", f"results/viz/{c.tag()}.gif",
+            "--stride", "8", "--fps", "7", "--colors", "24", "--smooth", "2"]
+
+
 def _image_argv(c: RunConfig, kwave_case: str | None) -> list[str]:
     a = ["python3", "-u", "repro/compare_images.py", "--angle", f"{c.angle}",
          "--chain", c.chain, "--tag", c.tag(), "--no-overlay",
@@ -189,17 +223,27 @@ def plan(c: RunConfig, kwave_case: str | None = None,
     """
     gpu = c.device is Device.GPU
     out: list[JobSpec] = []
+    # outputs must list EVERY file a stage writes, not just the interesting one: the runner's
+    # tracked-file guard and the manifest's output collection both see only what is declared.
     if Stage.MESH in stages:
+        stem = c.mesh_stem()
         out.append(JobSpec(Stage.MESH, c, _mesh_argv(c), gpu=False,
-                           outputs=[f"ili_mesh/{c.mesh_name()}"], label="mesh"))
+                           outputs=[f"ili_mesh/{stem}{e}" for e in (".msh", ".xdmf", ".h5")],
+                           label="mesh"))
     if Stage.FORWARD in stages:
         out.append(JobSpec(Stage.FORWARD, c, _forward_argv(c), gpu=gpu,
                            outputs=[f"ili_forward/channel_data_{c.tag()}.npz"],
                            label=f"solve {c.angle:+.0f} deg"))
     if Stage.IMAGE in stages:
-        out.append(JobSpec(Stage.IMAGE, c, _image_argv(c, kwave_case), gpu=False,
-                           outputs=[f"compare/images_{c.angle:.0f}_{c.tag()}_nooverlay.npz"],
-                           label="image"))
+        sign = "p" if c.angle >= 0 else "m"
+        out.append(JobSpec(
+            Stage.IMAGE, c, _image_argv(c, kwave_case), gpu=False,
+            outputs=[f"compare/images_{c.angle:.0f}_{c.tag()}_nooverlay.npz",
+                     f"compare/compare_{sign}{abs(c.angle):.0f}deg_{c.tag()}_nooverlay.png"],
+            label="image"))
+    if Stage.FIGURES in stages and c.snapshots:
+        out.append(JobSpec(Stage.FIGURES, c, _figures_argv(c), gpu=False,
+                           outputs=[f"viz/{c.tag()}.gif"], label="animation"))
     return out
 
 
@@ -212,6 +256,32 @@ def demo() -> None:
     assert "--sponge-mm" not in fwd, "NONE must apply no workaround"
     assert c.tag().startswith(GUI_TAG_PREFIX), "GUI runs must not collide with the record"
     assert c.mesh_name() == "ili_mesh_s0p8.msh", c.mesh_name()
+
+    # Pin mesh_stem() against filenames that actually exist, because it duplicates logic that
+    # lives in mesh/ili_mesh.py and silent drift there means solving on the wrong mesh.
+    cases = {
+        "ili_mesh_s0p8": dict(),
+        "ili_mesh": dict(scale=1.0),
+        "ili_mesh_healthy_s0p8": dict(notch=Notch.ABSENT),
+        "ili_mesh_s0p8_w165": dict(artifact_reduction=ArtifactReduction.WIDE_DOMAIN),
+        "ili_mesh_w165_tri": dict(scale=1.0, quad=False,
+                                  artifact_reduction=ArtifactReduction.WIDE_DOMAIN),
+        "ili_mesh_healthy_tri": dict(scale=1.0, quad=False, notch=Notch.ABSENT),
+        "ili_mesh_healthy_stair_tri": dict(scale=1.0, quad=False, notch=Notch.ABSENT,
+                                           staircase_id=True),
+    }
+    for want, kw in cases.items():
+        got = replace(c, **kw).mesh_stem()
+        assert got == want, f"mesh_stem: got {got}, want {want} for {kw}"
+    # :g not :.1f - rounding 0.65 to 0p7 would point at a different mesh
+    assert replace(c, scale=0.65).mesh_stem() == "ili_mesh_s0p65"
+    assert replace(c, h_notch=0.15).mesh_stem() == "ili_mesh_s0p8_hn0p15"
+
+    figs = plan(replace(c, snapshots=240), stages=(Stage.FIGURES,))
+    assert figs and any("wavefield_gif.py" in a for a in figs[0].argv)
+    assert not plan(c, stages=(Stage.FIGURES,)), "no snapshots -> no animation stage"
+    mesh_job = plan(c, stages=(Stage.MESH,))[0]
+    assert len(mesh_job.outputs) == 3, mesh_job.outputs
 
     w = replace(c, artifact_reduction=ArtifactReduction.WIDE_DOMAIN)
     assert "--x-min" in _mesh_argv(w) and w.mesh_name() == "ili_mesh_s0p8_w165.msh"

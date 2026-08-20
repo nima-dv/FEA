@@ -166,8 +166,14 @@ def load(allow_container: bool = True) -> Scenario:
 
 def demo() -> None:
     sc = load(allow_container=False)
+    # The fallback must agree with whatever the cache holds, or the two disagree silently the
+    # day Docker is down. Tolerance, not equality: the dump computes wall = r_od - r_id, which
+    # is 9.524999999999977 in binary, and the hand-written copy says 9.525.
     for f in fields(Scenario):
-        assert getattr(sc, f.name) == getattr(FALLBACK, f.name) or f.name == "source", f.name
+        a, b = getattr(sc, f.name), getattr(FALLBACK, f.name)
+        if f.name == "source":
+            continue
+        assert abs(a - b) <= 1e-9 * max(1.0, abs(b)), (f.name, a, b)
     # Identities the whole scenario rests on. If any of these break, the drawing is wrong.
     assert abs((sc.r_id + sc.z_c) - sc.standoff) < 1e-9, "standoff identity"
     assert abs((sc.r_od - sc.r_id) - sc.wall) < 1e-9, "wall thickness"

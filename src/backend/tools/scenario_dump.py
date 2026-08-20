@@ -15,7 +15,8 @@ import sys
 # that is where dolfinx and gmsh live (they are not in site-packages). Without this, importing
 # the very modules this script exists to read fails with ModuleNotFoundError. Appending, not
 # prepending, so /work still wins for our own packages.
-sys.path += glob.glob("/usr/local/dolfinx-real/lib/python3.*/dist-packages") + ["/usr/local/lib"]
+sys.path += (glob.glob("/usr/local/dolfinx-real/lib/python3.*/dist-packages")
+             + ["/usr/local/lib"])
 
 from mesh import ili_mesh as g          # geometry + mesh size targets (mm)
 from repro import ili_forward as s      # materials, source, time base (SI)

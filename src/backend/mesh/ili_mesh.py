@@ -632,6 +632,12 @@ def main() -> None:
         # the quad mesh of the same variant - and the quad meshes are what every existing solve
         # used, so that would break reproducibility of results already on disk.
         stem += "_tri"
+    if args.h_notch is not None:
+        # ...and so must the notch cell size, for exactly the same reason. It was the one
+        # variant-producing flag missing from this stem: two meshes differing only in
+        # --h-notch are DIFFERENT meshes, and until now the second silently overwrote the
+        # first. Found while wiring the GUI, which exposes this as a user-facing parameter.
+        stem += f"_hn{args.h_notch:g}".replace(".", "p")
 
     # --- VERIFICATION 1: the standoff identity that the coordinate choice exists for -----
     assert abs((R_ID + Z_C) - STANDOFF) < 1e-12, \

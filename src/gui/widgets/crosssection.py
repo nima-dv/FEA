@@ -45,8 +45,9 @@ DEFAULT_FACTS: dict[str, float] = {
     "standoff": 20.0,
 }
 
-_PAD_MM = 3.0          # breathing room around the geometric limits, in world units
+_PAD_MM = 4.0          # breathing room around the geometric limits, in world units
 _ARC_SAMPLES = 240     # polyline sampling of the arcs; 240 keeps the sagitta sub-pixel
+_CAPTION_PX = 18       # a text band under the drawing, in pixels: it must not letterbox
 
 
 @dataclass(frozen=True)
@@ -78,8 +79,12 @@ class CrossSection(QWidget):
         self._facts = dict(DEFAULT_FACTS)
         if facts:
             self.set_facts(facts)
-        self.setMinimumSize(360, 150)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.setMinimumSize(360, 100)
+        # heightForWidth, not Expanding-in-both: at true aspect a taller widget only adds
+        # letterbox, so the widget asks for exactly the height its width implies.
+        pol = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        pol.setHeightForWidth(True)
+        self.setSizePolicy(pol)
         self.setToolTip("Scenario cross-section. True aspect: the wall really is this thin.")
 
     # ---- inputs -------------------------------------------------------------------
@@ -96,9 +101,16 @@ class CrossSection(QWidget):
         self._facts.update({k: v for k, v in facts.items() if k in DEFAULT_FACTS})
         self.update()
 
+    def hasHeightForWidth(self) -> bool:  # noqa: N802 - Qt name
+        return True
+
+    def heightForWidth(self, w: int) -> int:  # noqa: N802 - Qt name
+        r = self.world_rect()
+        return int(round(w * r.height() / r.width())) + _CAPTION_PX
+
     def sizeHint(self):  # noqa: N802 - Qt name
         from PySide6.QtCore import QSize
-        return QSize(560, 200)
+        return QSize(560, self.heightForWidth(560))
 
     # ---- derived ------------------------------------------------------------------
 
@@ -118,10 +130,11 @@ class CrossSection(QWidget):
 
     def view(self) -> _View:
         w = self.world_rect()
-        scale = min(self.width() / w.width(), self.height() / w.height())
+        avail_h = max(20.0, self.height() - _CAPTION_PX)
+        scale = min(self.width() / w.width(), avail_h / w.height())
         # Centre the letterboxed drawing. oz is the widget y of world z = 0.
         ox = (self.width() - w.width() * scale) / 2.0 - w.x() * scale
-        oz = (self.height() + w.height() * scale) / 2.0 - (-w.y()) * scale
+        oz = (avail_h + w.height() * scale) / 2.0 - (-w.y()) * scale
         return _View(scale, ox, oz)
 
     # ---- paint --------------------------------------------------------------------
@@ -182,8 +195,10 @@ class CrossSection(QWidget):
         back = self._arc_path(v, f["r_od"], w.right(), w.left())
         path.connectPath(back)
         path.closeSubpath()
-        p.fillPath(path, QColor(PALETTE["surface_hi"]))
-        p.setPen(self._pen("rule", 1.2))
+        # Steel is the brightest neutral in the palette, water the next: three legible steps
+        # (bg, surface, rule) instead of inventing a grey.
+        p.fillPath(path, QColor(PALETTE["rule"]))
+        p.setPen(self._pen("ink_soft", 1.0))
         p.drawPath(self._arc_path(v, f["r_id"], w.left(), w.right()))
         p.drawPath(self._arc_path(v, f["r_od"], w.left(), w.right()))
 

@@ -31,8 +31,9 @@
 #                                     checkout (a `pip install -e` would drop .egg-info in it).
 #
 # ENVIRONMENT
-#   PYTHONPATH=/work        so `from lib.paths import RESULTS` works from any subdirectory
-#                           without a sys.path dance in every script.
+#   PYTHONPATH=/work:<image's own>  so `from lib.paths import RESULTS` works from any
+#                           subdirectory without a sys.path dance in every script.
+#                           PREPENDED, never replaced - see the note further down.
 #   DVFEA_RESULTS=/work/results  lib/paths.py reads these. Without them it would fall back to a
 #   DVFEA_RAW=/raw          host-shaped layout that does not exist inside the container.
 param(
@@ -76,8 +77,25 @@ if (Test-Path (Join-Path $bfDir 'beamformer\__init__.py')) {
     Write-Host "      git submodule update --init --depth 1 src/kwave" -ForegroundColor DarkYellow
 }
 
+# PYTHONPATH must be PREPENDED, never replaced. The dolfinx base image ships its own:
+#   /usr/local/dolfinx-real/lib/python3.12/dist-packages:/usr/local/lib
+# which is where dolfinx AND gmsh live (gmsh is /usr/local/lib/gmsh.py, not a wheel in
+# site-packages). Setting -e PYTHONPATH=/work wipes both, and the failure is delayed and
+# confusing: `import gmsh` and `import dolfinx` stop resolving, while anything that only
+# needs numpy keeps working - so meshing and solving break while imaging looks fine.
+$imgPath = ''
+$inspect = docker image inspect $image --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null
+if ($LASTEXITCODE -eq 0) {
+    $line = $inspect | Select-String '^PYTHONPATH=' | Select-Object -First 1
+    if ($line) { $imgPath = $line.Line.Substring('PYTHONPATH='.Length) }
+}
+if (-not $imgPath) {
+    # The image is not built yet (first run) or inspect failed. These are the base image's
+    # values; the inspect above is what keeps us honest if the base image ever changes.
+    $imgPath = '/usr/local/dolfinx-real/lib/python3.12/dist-packages:/usr/local/lib'
+}
 $envArgs = @(
-    '-e', 'PYTHONPATH=/work',
+    '-e', "PYTHONPATH=/work:$imgPath",
     '-e', 'DVFEA_RESULTS=/work/results',
     '-e', 'DVFEA_RAW=/raw'
 )

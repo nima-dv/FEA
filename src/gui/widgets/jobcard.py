@@ -43,6 +43,7 @@ class JobView:
     stage: str = "forward"                  # mesh | forward | image | figures
     state: str = "queued"                   # queued | running | succeeded | failed | cancelled
     summary: str = ""                       # one-line parameter summary
+    detail: str = ""                        # logparse.Progress.detail, e.g. "step 140/182457"
     percent: float | None = None            # 0-100; None while running = indeterminate
     step: int | None = None
     total_steps: int | None = None
@@ -177,9 +178,19 @@ class JobCard(QFrame):
 
     # ---- updates -----------------------------------------------------------------------
     def update_view(self, view: JobView | Mapping | Any) -> None:
-        """Replace the snapshot. Log lines already shown are kept, not re-appended."""
+        """Merge in a snapshot. Log lines already shown are kept, not re-appended.
+
+        Fields the new snapshot leaves empty keep their current value. Progress and state come
+        from two independent runner signals (job_progress carries ms/step and ETA,
+        queue_changed carries the state) and neither knows the other's fields, so a plain
+        overwrite would blank the ETA every time the queue changed.
+        """
         new = JobView.from_obj(view)
         new.log = self.view.log
+        for f in ("detail", "percent", "step", "total_steps", "ms_per_step", "eta_s",
+                  "elapsed_s", "summary"):
+            if not getattr(new, f):
+                setattr(new, f, getattr(self.view, f))
         self.view = new
         self.refresh()
 
@@ -200,6 +211,7 @@ class JobCard(QFrame):
         v.ms_per_step = _first(g("ms_per_step"), g("ms"), default=v.ms_per_step)
         v.eta_s = _first(g("eta_s"), g("eta"), default=v.eta_s)
         v.elapsed_s = _first(g("elapsed_s"), g("elapsed"), default=v.elapsed_s)
+        v.detail = _first(g("detail"), default=v.detail) or ""
         if v.percent is None and v.step and v.total_steps:
             v.percent = 100.0 * v.step / v.total_steps
         self.refresh()
@@ -253,7 +265,11 @@ class JobCard(QFrame):
             self._bar.setValue(1000 if v.state == "succeeded" else 0)
 
         bits = []
-        if v.step and v.total_steps:
+        # logparse's own detail string when there is one - it already says "step n/total" for a
+        # solve and "[3] meshing" for a mesh job, and reformatting it would lose the second case.
+        if v.detail:
+            bits.append(v.detail)
+        elif v.step and v.total_steps:
             bits.append(f"step {v.step}/{v.total_steps}")
         if v.ms_per_step is not None:
             bits.append(f"{v.ms_per_step:.1f} ms/step")
@@ -290,6 +306,10 @@ def demo() -> None:
     assert card._bar.value() == int(round(card.view.percent * 10))
     nums = card._numbers.text()
     assert "4.1 ms/step" in nums and "ETA 2.9 min" in nums, nums
+
+    # A mesh job has no step counter, only a stage marker; it must still show something.
+    card.update_progress({"detail": "[3] meshing the notch", "percent": 42.8})
+    assert "[3] meshing the notch" in card._numbers.text()
 
     # The whole point: a line no parser recognises must still reach the user.
     ugly = "RuntimeError: CUDA out of memory (tried to allocate 2.14 GiB)"
