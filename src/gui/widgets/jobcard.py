@@ -32,8 +32,9 @@ STATE_COLOR = {
     "succeeded": "#3FB950",   # --ok
     "failed": "#F0553A",      # --fail
     "cancelled": "#E3B341",   # --warn: cancelled is a choice, not a fault
+    "skipped": "#6E7681",     # --idle: never ran, because something upstream did not succeed
 }
-TERMINAL = ("succeeded", "failed", "cancelled")
+TERMINAL = ("succeeded", "failed", "cancelled", "skipped")
 
 
 @dataclass
@@ -41,7 +42,7 @@ class JobView:
     """A snapshot of one job. Whatever the runner's internals are, this is the wire format."""
     job_id: str = ""
     stage: str = "forward"                  # mesh | forward | image | figures
-    state: str = "queued"                   # queued | running | succeeded | failed | cancelled
+    state: str = "queued"                   # queued|running|succeeded|failed|cancelled|skipped
     summary: str = ""                       # one-line parameter summary
     detail: str = ""                        # logparse.Progress.detail, e.g. "step 140/182457"
     percent: float | None = None            # 0-100; None while running = indeterminate

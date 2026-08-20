@@ -45,15 +45,23 @@ class JobState(enum.Enum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    # A dependency failed, so this stage never ran. Distinct from FAILED on purpose: the
+    # thing the user needs to look at is upstream, and calling this one a failure sends them
+    # to the wrong log.
+    SKIPPED = "skipped"
 
 
-TERMINAL = (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED)
+TERMINAL = (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED, JobState.SKIPPED)
 
 
 @dataclass
 class Job:
     job_id: str
     spec: object                      # model.spec.JobSpec
+    # Job ids that must SUCCEED before this one may start. A pipeline is a chain - image reads
+    # what forward writes - and without this the runner started them together and the
+    # downstream stage failed on a missing input while its input was still being computed.
+    depends_on: tuple[str, ...] = ()
     allow_overwrite: bool = False
     state: JobState = JobState.QUEUED
     argv: list[str] = field(default_factory=list)
@@ -119,19 +127,33 @@ class Runner(QObject):
         return self._contract
 
     # --- queue ------------------------------------------------------------------------
-    def submit(self, spec, allow_overwrite: bool = False) -> str:
+    def submit(self, spec, allow_overwrite: bool = False,
+               depends_on: tuple[str, ...] = ()) -> str:
         """Queue one JobSpec. Returns its id. Nothing starts until the event loop turns."""
         self._n += 1
         stage = getattr(spec.stage, "value", str(spec.stage))
         job_id = f"gui_{time.strftime('%Y%m%d_%H%M%S')}_{self._n:03d}_{stage}"
-        self._jobs[job_id] = Job(job_id=job_id, spec=spec, allow_overwrite=allow_overwrite)
+        self._jobs[job_id] = Job(job_id=job_id, spec=spec, depends_on=tuple(depends_on),
+                                 allow_overwrite=allow_overwrite)
         self._order.append(job_id)
         self.queue_changed.emit()
         self._pump()
         return job_id
 
     def submit_plan(self, specs, allow_overwrite: bool = False) -> list[str]:
-        return [self.submit(s, allow_overwrite) for s in specs]
+        """Queue a pipeline: each stage waits for the one before it.
+
+        plan() emits stages in pipeline order, so chaining each to its predecessor is the
+        whole dependency graph. A stage that is skipped in the plan (say the user asked for
+        image only) simply shortens the chain rather than leaving a dangling reference.
+        """
+        ids: list[str] = []
+        prev: tuple[str, ...] = ()
+        for s in specs:
+            jid = self.submit(s, allow_overwrite, depends_on=prev)
+            ids.append(jid)
+            prev = (jid,)
+        return ids
 
     def job(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -178,13 +200,39 @@ class Runner(QObject):
 
     # --- scheduling -------------------------------------------------------------------
     def _pump(self) -> None:
-        """Start whatever is eligible, in submission order."""
+        """Start whatever is eligible, in submission order.
+
+        Two independent constraints, and conflating them was the original bug:
+          DEPENDENCY - a stage may not start until the stage feeding it has SUCCEEDED.
+          CAPACITY   - one solve at a time, because the GPU holds one problem's operators.
+        """
         for j in self.jobs():
             if j.state is not JobState.QUEUED:
                 continue
+            dead = [d for d in j.depends_on
+                    if (dj := self._jobs.get(d)) is not None
+                    and dj.state in (JobState.FAILED, JobState.CANCELLED, JobState.SKIPPED)]
+            if dead:
+                # Do not run it and let it fail on a missing input. That is how this bug
+                # presented: a confusing downstream failure hiding the real one upstream.
+                j.state = JobState.SKIPPED
+                j.error = (f"skipped: {', '.join(self._label(d) for d in dead)} did not "
+                           f"succeed, and this stage reads its output")
+                j.started = j.ended = time.time()
+                self.job_log.emit(j.job_id, j.error)
+                self.queue_changed.emit()
+                self.job_finished.emit(j.job_id, j.state.value)
+                continue
+            if any((dj := self._jobs.get(d)) is None or dj.state is not JobState.SUCCEEDED
+                   for d in j.depends_on):
+                continue                       # still waiting on something upstream
             if self._is_solve(j) and any(self._is_solve(r) for r in self.running()):
-                continue                       # one solve at a time; keep FIFO for the rest
+                continue                       # capacity, not ordering
             self._start(j)
+
+    def _label(self, job_id: str) -> str:
+        j = self._jobs.get(job_id)
+        return getattr(getattr(j, "spec", None), "label", None) or job_id
 
     @staticmethod
     def _is_solve(job: Job) -> bool:
@@ -375,6 +423,37 @@ def demo() -> None:
         assert m.state == "succeeded" and m.ms_per_step == 4.1 and m.argv[0] == "cmd"
         assert m.config["angle"] == 20.0 and m.stage == "forward"
         assert manifest.history(fake.results_dir) == [(2094218, "gpu", 4.1)]
+
+        # 4. REGRESSION: a pipeline is a chain. This is the bug that shipped - mesh, forward
+        #    and image were queued together and image FAILED on a missing input while forward
+        #    was still computing it. Two things must hold: nothing downstream starts early,
+        #    and when something upstream dies the rest is SKIPPED rather than run and failed,
+        #    because a downstream failure sends the reader to the wrong log.
+        chain = plan(RunConfig())
+        r2 = Runner(fake)
+        r2.build_argv = lambda spec, contract, name: (
+            ["cmd", "/c", "exit 1"] if getattr(spec.stage, "value", "") == "mesh"
+            else ["cmd", "/c", "echo downstream should never run"])
+        states: list[tuple[str, str]] = []
+        r2.job_finished.connect(lambda jid, st: states.append((jid.rsplit("_", 1)[1], st)))
+        ids = r2.submit_plan(chain)
+        assert len(ids) == len(chain) >= 3, ids
+        # Only the first stage may be live; everything after it is waiting on a dependency.
+        assert [j.state for j in r2.jobs()][1:] == [JobState.QUEUED] * (len(ids) - 1),             "a downstream stage started before its input existed - this is the shipped bug"
+
+        loop2 = QEventLoop()
+        QTimer.singleShot(20000, loop2.quit)
+        r2.queue_changed.connect(
+            lambda: loop2.quit() if all(j.state in TERMINAL for j in r2.jobs()) else None)
+        loop2.exec()
+
+        by_stage = dict(states)
+        assert by_stage.get("mesh") == "failed", states
+        assert by_stage.get("forward") == "skipped", states
+        assert by_stage.get("image") == "skipped", states
+        assert all("downstream should never run" not in (r2.job(i).error or "") for i in ids)
+        skipped = r2.job(ids[1])
+        assert "did not succeed" in skipped.error and skipped.exit_code is None, skipped.error
 
         # 4. Serialisation: two solves queued, only one runs.
         r2 = Runner(fake)

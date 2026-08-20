@@ -1,0 +1,79 @@
+{
+  "job_id": "gui_20260820_103216_001_mesh",
+  "stage": "mesh",
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "--name",
+    "gui_20260820_103216_001_mesh",
+    "-v",
+    "F:\\code\\FEA\\src\\backend:/work",
+    "-v",
+    "F:\\code\\FEA\\data\\results:/work/results",
+    "-v",
+    "F:\\code\\FEA\\data\\raw:/raw:ro",
+    "-v",
+    "F:\\code\\FEA\\src\\kwave\\Libraries\\PythonLibraries\\beamformer:/opt/bf:ro",
+    "-e",
+    "PYTHONPATH=/work:/usr/local/dolfinx-real/lib/python3.12/dist-packages:/usr/local/lib:",
+    "-e",
+    "DVFEA_RESULTS=/work/results",
+    "-e",
+    "DVFEA_RAW=/raw",
+    "-w",
+    "/work",
+    "dvfenics:bf",
+    "python3",
+    "mesh/ili_mesh.py",
+    "--scale",
+    "0.8",
+    "--no-plot",
+    "--quad"
+  ],
+  "config": {
+    "angle": 30.0,
+    "chain": "faithfulbf",
+    "scale": 0.8,
+    "quad": true,
+    "h_notch": null,
+    "notch": "present",
+    "staircase_id": false,
+    "degree": 4,
+    "cfl": 0.3,
+    "t_end": 6e-05,
+    "artifact_reduction": "none",
+    "device": "gpu",
+    "snapshots": 0,
+    "snap_window": [
+      18.0,
+      46.0
+    ],
+    "compare_kwave": false
+  },
+  "label": "mesh",
+  "commit": "aac9570-dirty",
+  "started": 1787247137.3745837,
+  "ended": 1787247141.0150273,
+  "exit_code": 0,
+  "state": "succeeded",
+  "ms_per_step": null,
+  "size": 45711,
+  "outputs": [
+    {
+      "path": "ili_mesh/ili_mesh_s0p8.msh",
+      "bytes": 3634103,
+      "mtime": 1787247139.6521513
+    },
+    {
+      "path": "ili_mesh/ili_mesh_s0p8.xdmf",
+      "bytes": 1706,
+      "mtime": 1787247140.4818194
+    },
+    {
+      "path": "ili_mesh/ili_mesh_s0p8.h5",
+      "bytes": 3900788,
+      "mtime": 1787247140.4828248
+    }
+  ]
+}
