@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBo
                                QSizePolicy, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
 from model.spec import (ArtifactReduction, Device, Notch, RunConfig, SPONGE_DB, SPONGE_MM,
-                        Stage, WIDE_X_MAX, WIDE_X_MIN, kwave_case_path, plan)
+                        Stage, WIDE_X_MAX, WIDE_X_MIN, plan)
 from widgets.consequences import Consequences
 from widgets.crosssection import CrossSection
 
@@ -51,22 +51,6 @@ CUSTOM = "(custom)"
 REPO = Path(__file__).resolve().parents[3]
 # /raw is the read-only mount of data/raw (docker/run.ps1), so what the container sees is not
 # the host path. Extracted cases are written by tools/extract_kwave_case.py.
-# results/, not raw/: these are our extractions from their workspaces, not the originals.
-KWAVE_DIR = REPO / "data" / "results" / "kwave_cases"
-
-
-def kwave_case(cfg: RunConfig) -> str | None:
-    """Container path of the extracted k-Wave case for this angle, or None if absent.
-
-    None is not a detail: guards BLOCKS a run that asks for a comparison with nothing to
-    compare against, and plan() silently drops --theirs, which would otherwise produce a
-    one-sided figure that looks like a finished comparison.
-    """
-    # spec.kwave_case_path owns the naming; this only decides whether the file is there.
-    want = kwave_case_path(cfg.angle)
-    if (KWAVE_DIR / Path(want).name).is_file():
-        return want
-    return None
 
 
 def _scenario_rows(sc) -> tuple[tuple[str, str], ...]:
@@ -441,7 +425,7 @@ class SimulateView(QWidget):
                 [c[0] for c in _ARTIFACT_CHOICES].index(cfg.artifact_reduction)).setChecked(True)
             self.device_group.button(0 if cfg.device is Device.GPU else 1).setChecked(True)
             self.snapshots.setValue(cfg.snapshots)
-            self.compare.setChecked(cfg.compare_kwave)
+            self.compare.setChecked(False)
             match = next((n for n, c in self._presets.items() if c == cfg), None)
             self.preset.setCurrentText(match or CUSTOM)
         finally:

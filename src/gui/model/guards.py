@@ -55,8 +55,6 @@ class Context:
     without a git checkout.
     """
     free_bytes: int | None = None
-    kwave_case: str | None = None                 # path to the k-Wave npz, None if absent
-    checked_kwave: bool = False                   # True once someone actually looked on disk
     tracked: frozenset[str] = frozenset()
     history: list[dict] = field(default_factory=list)
 
@@ -100,7 +98,7 @@ def check(config: RunConfig, sc: scen.Scenario | None = None,
     # --- BLOCK: writing onto the published record ---------------------------------------
     # Defence in depth. The gui_ tag prefix already makes a collision impossible; this is what
     # catches the day someone "temporarily" removes the prefix to reproduce a figure.
-    outputs = [o for j in spec.plan(config, context.kwave_case) for o in j.outputs]
+    outputs = [o for j in spec.plan(config) for o in j.outputs]
     clash = sorted(set(outputs) & set(context.tracked))
     if clash:
         out.append(Finding(Severity.BLOCK, "tag",
@@ -114,12 +112,6 @@ def check(config: RunConfig, sc: scen.Scenario | None = None,
                            f"{context.free_bytes/1e9:.2f} GB free"))
 
     # --- BLOCK: a comparison with nothing to compare to ---------------------------------
-    # `checked_kwave` guards against blocking on absent evidence: the form knows nothing
-    # about the filesystem, and a Run button disabled because nobody looked is just a bug.
-    if config.compare_kwave and context.checked_kwave and not context.kwave_case:
-        out.append(Finding(Severity.BLOCK, "compare_kwave",
-                           "no k-Wave case on disk for this scenario - run "
-                           "tools/extract_kwave_case.py, or turn the comparison off"))
 
     # --- WARN: under-resolved mesh -------------------------------------------------------
     res = derived.nodes_per_wavelength(config, sc)
@@ -159,8 +151,7 @@ def blocked(findings: list[Finding]) -> bool:
 
 def demo() -> None:
     sc = scen.load()
-    ctx = Context(free_bytes=500 * 10**9, kwave_case="/raw/kwave_odnotch4mm_20.npz",
-                  checked_kwave=True)
+    ctx = Context(free_bytes=500 * 10**9)
 
     # the published configuration must be clean: it IS the record, so anything it triggers
     # would fire on every published figure too
@@ -182,18 +173,17 @@ def demo() -> None:
     assert blocked(bad) and bad[0].field == "artifact_reduction", bad
 
     # comparison with no case on disk, and no room on disk
-    assert blocked(check(RunConfig(), sc, Context(checked_kwave=True)))
     assert check(RunConfig(), sc, Context()) == [], "no evidence, no findings"
     # the live form calls check(cfg) with nothing else, and BLOCK must read as BLOCK there
     assert [f.level for f in check(RunConfig(scale=2.0))] == ["WARN"]
     assert check(RunConfig(snapshots=240), None,
                  Context(free_bytes=10**8))[0].level == "BLOCK"
     assert blocked(check(RunConfig(snapshots=240), sc,
-                         Context(free_bytes=10**8, kwave_case="x")))
+                         Context(free_bytes=10**8)))
 
     # the tracked-output block: only fires when a plan output really is tracked
-    out0 = spec.plan(RunConfig(), "x")[0].outputs[0]
-    hit = check(RunConfig(), sc, Context(kwave_case="x", tracked=frozenset({out0})))
+    out0 = spec.plan(RunConfig())[0].outputs[0]
+    hit = check(RunConfig(), sc, Context(tracked=frozenset({out0})))
     assert blocked(hit) and hit[0].field == "tag", hit
 
     cpu = check(RunConfig(device=Device.CPU), sc, ctx)

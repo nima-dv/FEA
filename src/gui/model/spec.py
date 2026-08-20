@@ -100,9 +100,6 @@ class RunConfig:
     snapshots: int = 0                 # 0 = off. 240 writes ~700-970 MB, so it is opt-in.
     snap_window: tuple[float, float] | None = (18.0, 46.0)   # us
 
-    # --- comparison
-    compare_kwave: bool = True         # only meaningful while the scenario is the benchmark one
-
     def tag(self) -> str:
         """Filename tag. Mirrors the convention already on disk, prefixed for safety."""
         sign = "p" if self.angle >= 0 else "m"
@@ -152,18 +149,6 @@ class RunConfig:
 
     def mesh_name(self) -> str:
         return self.mesh_stem() + ".msh"
-
-
-# The research team's runs, reduced to a few MB each by tools/extract_kwave_case.py. They
-# live under RESULTS and not RAW because they are OUR extractions rather than their originals
-# - data/.gitignore tracks them deliberately for that reason. Container-relative, because that
-# is what goes on a command line.
-KWAVE_CASE_DIR = "results/kwave_cases"
-
-
-def kwave_case_path(angle: float) -> str:
-    """Where the k-Wave case for this steering angle should be."""
-    return f"{KWAVE_CASE_DIR}/kwave_odnotch4mm_{angle:.0f}.npz"
 
 
 @dataclass(frozen=True)
@@ -222,16 +207,20 @@ def _figures_argv(c: RunConfig) -> list[str]:
             "--stride", "8", "--fps", "7", "--colors", "24", "--smooth", "2"]
 
 
-def _image_argv(c: RunConfig, kwave_case: str | None) -> list[str]:
-    a = ["python3", "-u", "repro/compare_images.py", "--angle", f"{c.angle}",
-         "--chain", c.chain, "--tag", c.tag(), "--no-overlay",
-         "--ours", f"results/ili_forward/channel_data_{c.tag()}.npz"]
-    if c.compare_kwave and kwave_case:
-        a += ["--theirs", kwave_case]
-    return a
+def _image_argv(c: RunConfig) -> list[str]:
+    """Image OUR result. No k-Wave comparison: that is deliberately not a GUI concept.
+
+    The published head-to-head is complete and archived, and any further comparison will be
+    run by hand with compare_images.py --theirs, which is untouched. Building the app around a
+    comparison it will rarely make meant every screen, guard and manifest had to keep
+    reasoning about whether a reference case happened to be on disk.
+    """
+    return ["python3", "-u", "repro/compare_images.py", "--angle", f"{c.angle}",
+            "--chain", c.chain, "--tag", c.tag(), "--no-overlay",
+            "--ours", f"results/ili_forward/channel_data_{c.tag()}.npz"]
 
 
-def plan(c: RunConfig, kwave_case: str | None = None,
+def plan(c: RunConfig,
          stages: tuple[Stage, ...] = tuple(Stage)) -> list[JobSpec]:
     """The pipeline for one configuration, in order.
 
@@ -259,7 +248,7 @@ def plan(c: RunConfig, kwave_case: str | None = None,
     if Stage.IMAGE in stages:
         sign = "p" if c.angle >= 0 else "m"
         out.append(JobSpec(
-            Stage.IMAGE, c, _image_argv(c, kwave_case), gpu=False,
+            Stage.IMAGE, c, _image_argv(c), gpu=False,
             outputs=[f"compare/images_{c.angle:.0f}_{c.tag()}_nooverlay.npz",
                      f"compare/compare_{sign}{abs(c.angle):.0f}deg_{c.tag()}_nooverlay.png"],
             label="image"))
@@ -308,10 +297,9 @@ def demo() -> None:
     assert any("wavefield_" in o for o in snap_fwd.outputs), snap_fwd.outputs
     assert len(plan(c, stages=(Stage.FORWARD,))[0].outputs) == 1
     assert "healthy" in replace(c, notch=Notch.ABSENT).tag()
-    # Pinned against the two files that exist: a wrong path here does not raise, it silently
-    # drops --theirs and produces a figure with no comparison in it.
-    assert kwave_case_path(20.0) == "results/kwave_cases/kwave_odnotch4mm_20.npz"
-    assert kwave_case_path(-20.0) == "results/kwave_cases/kwave_odnotch4mm_-20.npz"
+    img = plan(c, stages=(Stage.IMAGE,))[0]
+    assert "--theirs" not in img.argv, "the GUI does not do k-Wave comparisons"
+    assert "--no-overlay" in img.argv, "no annotated figure, ever"
     assert replace(c, scale=1.0).tag() == "gui_deg4_s1_p20deg", replace(c, scale=1.0).tag()
     assert c.tag() == "gui_deg4_s0p8_p20deg", c.tag()
 

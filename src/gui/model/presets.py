@@ -51,8 +51,7 @@ PRESETS: dict[str, RunConfig] = {
     "Wavefield snapshots +20 deg": replace(PUBLISHED_P20, snapshots=240),
     # The GPU acceptance gate ran 3 us on both devices; a 3 us CPU solve is minutes, not
     # hours, which is why the CPU warning is keyed to record length and not to the device.
-    "CPU gate (3 us)": replace(PUBLISHED_P20, device=Device.CPU, t_end=3.0e-6,
-                               compare_kwave=False),
+    "CPU gate (3 us)": replace(PUBLISHED_P20, device=Device.CPU, t_end=3.0e-6),
     # --- designed but not yet solved -----------------------------------------------------
     # C4: the ID arc rasterised onto k-Wave's own 50 um grid, everything else identical, so a
     # difference in the image is attributable to geometry representation and nothing else.

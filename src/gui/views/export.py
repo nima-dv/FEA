@@ -403,7 +403,7 @@ def demo() -> None:
 
     # A manifest-shaped run carries argv and metrics, so both files gain real content.
     rich = RunEntry(run_id="gui_deg4_s0p8_p20deg", title="gui run", angle=20.0,
-                    figures=[next(r for r in runs if r.tag).figures[0]], source="manifest",
+                    figures=[next(r for r in runs if r.tag and r.figures).figures[0]], source="manifest",
                     metrics={"FEM": {"cnr_rms_db": 12.3}, "k-Wave": {"cnr_rms_db": 15.5}},
                     argv=[["python3", "-u", "repro/ili_forward.py", "--angle", "20.0",
                            "--snap-window=18.0,46.0"]])

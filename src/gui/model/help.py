@@ -66,15 +66,6 @@ HELP: dict[str, Help] = {
                        "corrected - it under-samples and omits the migration anti-alias, "
                        "which costs about 2.5 dB of clutter."),
         }),
-    "compare_kwave": Help(
-        label="Compare against k-Wave", flag="--theirs",
-        hint="Adds the reference solver's image beside ours, through the identical beamformer.",
-        detail="Needs the research team's extracted case for this beam angle on disk "
-               "(data/results/kwave_cases). Cases exist for +20 and -20 degrees.\n\n"
-               "This is the comparison that makes a claim measurable rather than arguable: "
-               "image formation is byte-identical for both inputs, so any difference in the "
-               "output is attributable to the forward solver and nothing else. Turn it off "
-               "for an exploratory run at an angle they have not simulated."),
 
     # ------------------------------------------------------------------ mesh
     "scale": Help(

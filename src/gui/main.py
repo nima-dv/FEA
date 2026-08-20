@@ -175,12 +175,7 @@ class MainWindow(QMainWindow):
     def _submit(self, cfg, stages, then_show: str | None) -> None:
         """RunConfig + stages -> JobSpecs -> the one Runner. Nothing else may start a job."""
         from model.spec import plan
-        try:
-            from views.simulate import kwave_case
-        except ImportError:
-            def kwave_case(_c):
-                return None
-        specs = plan(cfg, kwave_case(cfg), tuple(stages))
+        specs = plan(cfg, tuple(stages))
         runner = self._runner()
         if runner is None:
             self.statusBar().showMessage(
