@@ -30,6 +30,10 @@ VIEW_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("Queue", "views.queue", ("QueueView", "Queue")),
     ("Results", "views.results", ("ResultsView", "Results")),
     ("Export", "views.export", ("ExportView", "Export")),
+    # Interactive matplotlib views: the real mesh, a wavefield scrubber and an image probe.
+    # Exploration only - published figures stay backend-rendered, and the canvas stamps every
+    # figure to say so, so a screenshot or a saved PNG carries the caveat with it.
+    ("Inspect", "views.inspector", ("InspectView",)),
     ("Settings", "views.settings", ("SettingsView", "Settings")),
 )
 

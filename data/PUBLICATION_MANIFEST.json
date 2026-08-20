@@ -1,9 +1,9 @@
 {
- "created": "2026-08-20T10:52:13",
- "commit": "8d895fca8c6728cf65ff367f1c23cb02bb9c8e51",
+ "created": "2026-08-20T11:16:07",
+ "commit": "084b7e8585593ffb50d4a7a735d2453ccfcb92d7",
  "subtree": "data/results",
- "file_count": 104,
- "total_bytes": 472943456,
+ "file_count": 101,
+ "total_bytes": 472938348,
  "files": {
   "data/results/cavity_scattering/directivity_vs_exact.png": {
    "sha256": "9b65b903cc480a4d2ea309aea9264ef0f71d6173f2a6c52fe17c5d704ebad641",
@@ -284,18 +284,6 @@
   "data/results/compare/NAMING.md": {
    "sha256": "918e0ea67af77d73bc2dd71fb070ac58d0ad97b779615976b9d8cd2f974a9243",
    "bytes": 2181
-  },
-  "data/results/gui_runs/gui_20260820_103216_001_mesh.json": {
-   "sha256": "338713b7c9753d1d03cda88a87518833b334ddc2ff1a37dd68816ce42b32dd3a",
-   "bytes": 1755
-  },
-  "data/results/gui_runs/gui_20260820_103217_002_forward.json": {
-   "sha256": "ad1d50149b527a920153ff9c9fb6b5a8ad4ad4b21db4e6cbece2c5b5790af708",
-   "bytes": 1792
-  },
-  "data/results/gui_runs/gui_20260820_103217_003_image.json": {
-   "sha256": "e461578ec072b7783811ac0d0eb306398fd7f5eeda95406c02921e38ffec30c6",
-   "bytes": 1561
   },
   "data/results/ili_forward/channel_data_deg4_s0p8_healthy_p20deg.npz": {
    "sha256": "a8bd3b8623ded1a69675f648d38cbf2085d678a3c8d67a3c7217d418f2c73524",

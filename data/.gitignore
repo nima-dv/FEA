@@ -46,3 +46,9 @@ results/artifacts/*.html
 # THE RESEARCH TEAM'S RAW RUNS. 423 MB across three runs, read-only for us, and re-obtainable
 # from them. tools/extract_kwave_case.py reduces each to a few-MB .npz under results/.
 raw/
+
+# GUI run records. One JSON per job, written by the app so a run is reproducible and
+# so the gallery can find it. They are a local experiment log, not publication data -
+# three of them got tracked and then swept into PUBLICATION_MANIFEST.json, which the
+# integrity check correctly failed on the moment a smoke test cleaned them up.
+results/gui_runs/
