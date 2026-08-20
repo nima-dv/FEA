@@ -1,14 +1,8 @@
-# Repo-root ignores. Note src/fenics/.gitignore handles that subtree's own artefacts
-# (results/, meshes, field dumps, GIFs); its rules are relative to that folder, so they
-# do NOT cover anything here.
+# Repo-root ignores. data/ and src/backend/ carry their own for their own artefacts.
 
-# The research team's raw k-Wave output. 423 MB across three runs, and every
-# *_workspace.mat is ~122 MB - OVER GITHUB'S HARD 100 MB PER-FILE LIMIT, so a push
-# carrying one is rejected outright, not merely slow. Re-obtain from the research team;
-# tools/extract_kwave_case.py reduces each to a few-MB .npz under results/.
-data/derrell/
-
-# Their MAT dumps are never small; blanket rule so a stray copy elsewhere cannot slip in.
+# Their MAT dumps are never small, and *_workspace.mat is ~122 MB - OVER GITHUB'S HARD
+# 100 MB PER-FILE LIMIT, so a push carrying one is rejected outright. Blanket rule so a
+# stray copy anywhere cannot slip in.
 *.mat
 
 # Python

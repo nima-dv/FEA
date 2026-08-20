@@ -1,0 +1,48 @@
+# What of our own output is worth keeping in git, and what regenerates.
+#
+# Figures (.png) ARE tracked - they are the deliverable. Meshes and field dumps are not:
+# they are large and a script reproduces them (the ILI mesh rebuilds in ~10 s).
+results/**/*.msh
+results/**/*.h5
+results/**/*.xdmf
+results/**/*.npz
+results/**/*.bp
+
+# ...EXCEPT the ones that cost real time to produce. A forward solve is 7.7 min on the GPU
+# and 2.4 h on a CPU core; losing one to an untracked working tree already cost this project
+# a full day once. ~44 MB each.
+!results/ili_forward/channel_data_*.npz
+
+# ...except these three. The wide-domain record backs a NULL result and regenerates in
+# 12 min; the snapshot runs exist only to make animations and their channel data is a
+# byproduct nothing reads.
+results/ili_forward/channel_data_*_w165_*.npz
+results/ili_forward/channel_data_snap*.npz
+# ...but channel_data_snap_p20deg.npz was already tracked when that rule was written,
+# and generated data backing the publication is kept. It and the two published pair GIFs
+# below are force-tracked (`git add -f`); the rules above only govern NEW files.
+
+# Extracted k-Wave cases: only ~1 min to re-extract, but re-extraction needs data/raw/,
+# which is itself gitignored bulk. ~24 MB each.
+!results/kwave_cases/*.npz
+
+# Beamformed image caches: tiny, and metric_robustness.py reads them.
+!results/compare/images_*.npz
+
+# NEVER track the wavefield snapshot dumps. 476-966 MB each - over GitHub's HARD 100 MB
+# per-file limit, so a push carrying one is rejected outright. They rebuild from a ~2 min
+# degree-3 GPU solve with --snapshots. Listed after the negations so it wins.
+results/**/wavefield_*.npz
+
+# Animations are regenerable and can be enormous - the first wavefield GIF was 64 MB, which
+# git warns about and no reviewer wants to clone. Render with viz/wavefield_gif.py
+# (--stride / --colors keep them to a few MB) and `git add -f` a small one worth keeping.
+results/viz/*.gif
+
+# Generated artifact pages carry ~10-20 MB of inlined base64 images. Rebuild them with
+# viz/build_artifacts.py rather than tracking them.
+results/artifacts/*.html
+
+# THE RESEARCH TEAM'S RAW RUNS. 423 MB across three runs, read-only for us, and re-obtainable
+# from them. tools/extract_kwave_case.py reduces each to a few-MB .npz under results/.
+raw/

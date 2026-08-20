@@ -1,0 +1,16 @@
+# Backend source tree. Output artefacts live in data/, not here - see data/.gitignore.
+__pycache__/
+*.pyc
+
+# Stray outputs if a script ever writes next to itself by mistake.
+*.xdmf
+*.h5
+*.bp
+*.pvd
+*.vtu
+*.png
+*.mp4
+
+# Empty mountpoint: docker/run.ps1 mounts data/results at /work/results so documented
+# commands keep working, and Docker creates this on the host as a side effect.
+results/

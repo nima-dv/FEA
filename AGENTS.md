@@ -33,12 +33,12 @@ Gitignored. Mounted read-only at `/data` in the container.
 
 ---
 
-## The project (`src/fenics/`)
+## The project (`src/backend/`)
 
 FEM ultrasound wave simulation benchmarked against the research team's MATLAB k-Wave ILI
 crack-detection sim. Pure Python in Docker.
 
-- **How to run, layout, per-script reference:** `src/fenics/README.md`.
+- **How to run, layout, per-script reference:** `src/backend/README.md`.
 - **Why - asks, constraints, frozen scenario, results, plan:**
   `F:\code\readme\rnd-nima-FEA-README.md`. Read it before changing anything numerical;
   several settings look wrong and are deliberate (`--degree 4`, `H_NOTCH` 0.30 mm).
