@@ -139,11 +139,11 @@ def main() -> None:
         db = 20 * np.log10(np.maximum(r["img"], vmax * 1e-4) / vmax)
         im = ax.imshow(db.T, origin="lower", aspect="equal", cmap="inferno", vmin=-40, vmax=0,
                        extent=[r["x"][0], r["x"][-1], r["z"][0], r["z"][-1]])
-        th = np.linspace(-0.25, 0.25, 200)
-        for rr in (FROZEN["r_id"] * 1e3, FROZEN["r_od"] * 1e3):
-            ax.plot(rr * np.sin(th) + FROZEN["x_c"] * 1e3,
-                    rr * np.cos(th) + FROZEN["z_c"] * 1e3, c="cyan", lw=0.8)
-        ax.plot([NOTCH_X, NOTCH_X], [25.525, 29.525], color="lime", lw=1.6)
+        # NOTHING IS DRAWN ON THE IMAGE. No wall arcs, no notch marker. A marker over the
+        # crack tells the viewer where to look, which disqualifies any judgement of whether
+        # the defect is detectable, and it covers the very feature the figure exists to show.
+        # This figure used to draw both unconditionally, which made it the last annotated
+        # image still reaching a published page.
         ax.set_xlim(r["x"][0], r["x"][-1]); ax.set_ylim(0, 40)
         ax.set_title(f"{l}   (notch-ROI peak {r['m']['crack_peak']:.3g})", fontsize=10)
         ax.set_xlabel("x [mm]")

@@ -1,0 +1,281 @@
+/* DarkVision dark theme. The "dollar-token" placeholders are substituted by theme/__init__.py -
+   see PALETTE there for the authoritative values. Orange is interaction and emphasis ONLY:
+   it marks what you can act on, what has focus, and what is running. Nothing decorative. */
+
+QWidget {
+    background: $bg;
+    color: $ink;
+    font-family: "Segoe UI", "Inter", sans-serif;
+    font-size: 12px;
+}
+
+QToolTip {
+    background: $surface_hi;
+    color: $ink;
+    border: 1px solid $rule;
+    padding: 4px 6px;
+}
+
+/* ---- structure -------------------------------------------------------------- */
+
+QFrame#rail {
+    background: $surface;
+    border-right: 1px solid $rule;
+}
+
+QFrame[role="card"] {
+    background: $surface;
+    border: 1px solid $rule;
+    border-radius: 4px;
+}
+
+QFrame[role="hrule"] {
+    background: $rule;
+    max-height: 1px;
+    border: none;
+}
+
+QSplitter::handle { background: $rule; width: 1px; }
+
+/* ---- the left rail ---------------------------------------------------------- */
+
+QListWidget#railList {
+    background: $surface;
+    border: none;
+    outline: none;
+    padding: 6px 0px;
+}
+
+QListWidget#railList::item {
+    color: $ink_soft;
+    padding: 9px 12px;
+    margin: 1px 6px;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+}
+
+QListWidget#railList::item:hover {
+    color: $ink;
+    background: $surface_hi;
+}
+
+QListWidget#railList::item:selected {
+    color: $ink;
+    background: $accent_wash;
+    border-left: 2px solid $accent;
+}
+
+/* ---- text ------------------------------------------------------------------- */
+
+QLabel { background: transparent; }
+QLabel#caption, QLabel[role="caption"] { color: $ink_soft; }
+
+QLabel#title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+
+/* Numbers are monospace and right-aligned so columns compare by eye. */
+QLabel[role="num"], QTableWidget#numbers, QPlainTextEdit#log, QTextEdit#log {
+    font-family: $mono;
+}
+
+QPlainTextEdit#log, QTextEdit#log {
+    background: $surface;
+    border: 1px solid $rule;
+    color: $ink_soft;
+    selection-background-color: $accent_lo;
+}
+
+/* A field whose value differs from the published baseline carries this 8 px dot. */
+QLabel#dot {
+    background: $accent;
+    border-radius: 4px;
+    min-width: 8px;  max-width: 8px;
+    min-height: 8px; max-height: 8px;
+}
+QLabel#dot[on="false"] { background: transparent; }
+
+/* Status words, set with a dynamic property: label.setProperty("state", "ok") */
+QLabel[state="ok"]   { color: $ok; }
+QLabel[state="warn"] { color: $warn; }
+QLabel[state="fail"] { color: $fail; }
+QLabel[state="idle"] { color: $idle; }
+
+/* ---- groups ----------------------------------------------------------------- */
+
+QGroupBox {
+    background: $surface;
+    border: 1px solid $rule;
+    border-radius: 4px;
+    margin-top: 8px;
+    padding: 22px 10px 10px 10px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 8px;
+    padding: 2px 4px;
+    color: $ink_soft;
+}
+
+QGroupBox::title:hover { color: $accent_hi; }
+
+QGroupBox::indicator { width: 9px; height: 9px; }
+
+/* ---- inputs ----------------------------------------------------------------- */
+
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QAbstractSpinBox {
+    background: $surface_hi;
+    border: 1px solid $rule;
+    border-radius: 3px;
+    padding: 4px 6px;
+    color: $ink;
+    selection-background-color: $accent_lo;
+    font-family: $mono;
+}
+
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+    border: 1px solid $accent;
+}
+
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
+    color: $idle;
+    background: $surface;
+}
+
+QComboBox::drop-down { border: none; width: 16px; }
+QComboBox::down-arrow {
+    /* No image assets in this app: a 4 px orange square reads as an affordance. */
+    width: 4px; height: 4px;
+    background: $accent;
+}
+QComboBox QAbstractItemView {
+    background: $surface_hi;
+    border: 1px solid $rule;
+    selection-background-color: $accent_wash;
+    selection-color: $ink;
+    outline: none;
+}
+
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    background: $surface;
+    border-left: 1px solid $rule;
+    width: 14px;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+    background: $accent_lo;
+}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    width: 3px; height: 3px; background: $ink_soft;
+}
+
+QCheckBox, QRadioButton { spacing: 7px; background: transparent; }
+QCheckBox:disabled, QRadioButton:disabled { color: $idle; }
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 12px; height: 12px;
+    background: $surface_hi;
+    border: 1px solid $rule;
+}
+QRadioButton::indicator { border-radius: 7px; }
+QCheckBox::indicator { border-radius: 2px; }
+QCheckBox::indicator:hover, QRadioButton::indicator:hover { border: 1px solid $accent_hi; }
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background: $accent;
+    border: 1px solid $accent;
+}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled { border: 1px solid $idle; }
+
+/* ---- buttons ---------------------------------------------------------------- */
+
+QPushButton {
+    background: $surface_hi;
+    border: 1px solid $rule;
+    border-radius: 3px;
+    padding: 6px 14px;
+    color: $ink;
+}
+QPushButton:hover  { border: 1px solid $accent_hi; color: $accent_hi; }
+QPushButton:pressed { background: $accent_lo; color: $ink; }
+QPushButton:disabled { color: $idle; border: 1px solid $rule; background: $surface; }
+
+QPushButton#primary {
+    background: $accent;
+    border: 1px solid $accent;
+    color: $bg;
+    font-weight: 600;
+}
+QPushButton#primary:hover   { background: $accent_hi; border-color: $accent_hi; color: $bg; }
+QPushButton#primary:pressed { background: $accent_lo; border-color: $accent_lo; }
+QPushButton#primary:disabled {
+    background: $surface;
+    border: 1px solid $rule;
+    color: $idle;
+}
+
+/* ---- tables ----------------------------------------------------------------- */
+
+QTableWidget, QTableView, QTreeView {
+    background: $surface;
+    alternate-background-color: $surface_hi;
+    border: 1px solid $rule;
+    gridline-color: $rule;
+    selection-background-color: $accent_wash;
+    selection-color: $ink;
+    outline: none;
+}
+
+QHeaderView::section {
+    background: $surface_hi;
+    color: $ink_soft;
+    border: none;
+    border-bottom: 1px solid $rule;
+    padding: 4px 6px;
+    font-weight: 600;
+}
+
+QTableCornerButton::section { background: $surface_hi; border: none; }
+
+/* ---- progress and scrollbars ------------------------------------------------ */
+
+QProgressBar {
+    background: $surface_hi;
+    border: 1px solid $rule;
+    border-radius: 3px;
+    text-align: center;
+    color: $ink;
+    font-family: $mono;
+    max-height: 14px;
+}
+QProgressBar::chunk { background: $accent; }
+
+QScrollBar:vertical   { background: $bg; width: 10px; margin: 0; }
+QScrollBar:horizontal { background: $bg; height: 10px; margin: 0; }
+QScrollBar::handle {
+    background: $rule;
+    border-radius: 5px;
+    min-height: 24px;
+    min-width: 24px;
+}
+QScrollBar::handle:hover { background: $idle; }
+QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+
+QScrollArea { border: none; }
+
+/* ---- status bar ------------------------------------------------------------- */
+
+QStatusBar {
+    background: $surface;
+    border-top: 1px solid $rule;
+    color: $ink_soft;
+}
+QStatusBar::item { border: none; }
+QStatusBar QLabel { color: $ink_soft; font-family: $mono; }
