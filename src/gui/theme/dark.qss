@@ -192,6 +192,12 @@ QCheckBox::indicator:checked, QRadioButton::indicator:checked {
     border: 1px solid $accent;
 }
 QCheckBox::indicator:disabled, QRadioButton::indicator:disabled { border: 1px solid $idle; }
+/* Orange means live. A disabled-but-checked box (e.g. the figures stage with snapshots off)
+   must not read as something you can act on. */
+QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled {
+    background: $idle;
+    border: 1px solid $idle;
+}
 
 /* ---- buttons ---------------------------------------------------------------- */
 

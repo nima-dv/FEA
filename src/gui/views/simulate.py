@@ -23,29 +23,19 @@ if __package__ in (None, ""):     # direct run: make src/gui the import root
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout,
-                               QFrame, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                               QFrame, QGroupBox, QHBoxLayout, QLabel,
                                QPlainTextEdit, QPushButton, QRadioButton, QScrollArea,
                                QSizePolicy, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
 from model.spec import (ArtifactReduction, Device, Notch, RunConfig, SPONGE_DB, SPONGE_MM,
-                        Stage, WIDE_X_MAX, WIDE_X_MIN, plan)
+                        Stage, WIDE_X_MAX, WIDE_X_MIN, kwave_case_path, plan)
 from widgets.consequences import Consequences
-from widgets.crosssection import DEFAULT_FACTS, CrossSection
+from widgets.crosssection import CrossSection
 
-# Read-only scenario facts, mirrored from repro/ili_forward.py (materials) and mesh/ili_mesh.py
-# (geometry). Geometry and materials are backend CONSTANTS, not flags - README phase-1 scope
-# defers editing them - so this panel exists to state them, not to change them. model/scenario.py
-# (W2) replaces these with the backend's own dump when it lands.
-SCENARIO_FALLBACK: tuple[tuple[str, str], ...] = (
-    ("pipe", "ID r 193.675 / OD r 203.200 mm, wall 9.525 mm"),
-    ("standoff", "20.0 mm water on the beam axis"),
-    ("array", "256 el @ 0.30 mm = 76.5 mm aperture at z = 0"),
-    ("pulse", "1-cycle toneburst, f0 4.0 MHz"),
-    ("steel", "c_P 5700, c_S 3100 m/s, rho 7850 kg/m3"),
-    ("water", "c 1500 m/s, rho 1000 kg/m3"),
-    ("notch", "4.0 x 1.0 mm slot at x = 38.25 mm, from the OD inward"),
-)
-
+# The read-only facts come from model/scenario.py, which owns them (cache -> its own
+# FALLBACK, never Docker at startup). This view deliberately keeps NO second copy of the
+# geometry or the materials: two copies of a backend constant is exactly how the GUI ends up
+# disagreeing with the solver in silence.
 _ARTIFACT_CHOICES: tuple[tuple[ArtifactReduction, str, str], ...] = (
     (ArtifactReduction.NONE, "None",
      "no workaround; what every published figure uses  (--abc-legacy)"),
@@ -61,7 +51,8 @@ CUSTOM = "(custom)"
 REPO = Path(__file__).resolve().parents[3]
 # /raw is the read-only mount of data/raw (docker/run.ps1), so what the container sees is not
 # the host path. Extracted cases are written by tools/extract_kwave_case.py.
-KWAVE_DIR = REPO / "data" / "raw" / "kwave_cases"
+# results/, not raw/: these are our extractions from their workspaces, not the originals.
+KWAVE_DIR = REPO / "data" / "results" / "kwave_cases"
 
 
 def kwave_case(cfg: RunConfig) -> str | None:
@@ -71,10 +62,10 @@ def kwave_case(cfg: RunConfig) -> str | None:
     compare against, and plan() silently drops --theirs, which would otherwise produce a
     one-sided figure that looks like a finished comparison.
     """
-    for name in ("kwave_odnotch4mm_%.0f.npz" % cfg.angle,
-                 "kwave_odnotch4mm_%.0f.npz" % abs(cfg.angle)):
-        if (KWAVE_DIR / name).is_file():
-            return "/raw/kwave_cases/" + name
+    # spec.kwave_case_path owns the naming; this only decides whether the file is there.
+    want = kwave_case_path(cfg.angle)
+    if (KWAVE_DIR / Path(want).name).is_file():
+        return want
     return None
 
 
@@ -121,17 +112,24 @@ class _Group(QGroupBox):
     """Collapsible group. Qt's checkable group box is the collapse toggle - no custom header,
     no animation. Hiding the body rather than the box keeps the title clickable."""
 
-    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+    def __init__(self, title: str, parent: QWidget | None = None,
+                 stacked: bool = False) -> None:
         super().__init__(title, parent)
         self.setCheckable(True)
         self.setChecked(True)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         self.body = QWidget(self)
-        self.form = QFormLayout(self.body)
-        self.form.setContentsMargins(0, 0, 0, 0)
-        self.form.setSpacing(6)
-        self.form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        # Stacked, not a form: a word-wrapped caption in a QFormLayout field column claims
+        # vertical space out of all proportion to its text.
+        self.box = QVBoxLayout(self.body) if stacked else None
+        self.form = None if stacked else QFormLayout(self.body)
+        inner = self.box or self.form
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setSpacing(4 if stacked else 6)
+        if self.form is not None:
+            self.form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         outer.addWidget(self.body)
         self.toggled.connect(self.body.setVisible)
 
@@ -250,7 +248,16 @@ class SimulateView(QWidget):
 
         # --- Domain: three fixed treatments, NONE default. The knobs are deliberately not
         # exposed - tuning a boundary treatment against an image is how you invent an artefact.
-        g = _Group("Domain")
+        g = _Group("Domain", stacked=True)
+        head_row = QWidget()
+        hr = QHBoxLayout(head_row)
+        hr.setContentsMargins(0, 0, 0, 0)
+        cap = QLabel("artifact reduction")
+        cap.setProperty("role", "caption")
+        hr.addWidget(cap)
+        hr.addStretch(1)
+        hr.addWidget(self._dot("artifact_reduction"))
+        g.box.addWidget(head_row)
         self.artifact_group = QButtonGroup(self)
         for i, (opt, title, why) in enumerate(_ARTIFACT_CHOICES):
             rb = QRadioButton(title)
@@ -259,10 +266,11 @@ class SimulateView(QWidget):
             note = QLabel(why)
             note.setProperty("role", "caption")
             note.setWordWrap(True)
-            note.setMinimumWidth(1)     # a wrapped label must not set the column's width
-            g.row("" if i else "artifact reduction", rb,
-                  self._dot("artifact_reduction") if i == 0 else None)
-            g.form.addRow("", note)
+            note.setMinimumWidth(1)
+            note.setContentsMargins(20, 0, 0, 4)      # indent under its own radio
+            note.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+            g.box.addWidget(rb)
+            g.box.addWidget(note)
         self.artifact_group.idToggled.connect(lambda _i, on: on and self._on_change())
         lay.addWidget(g)
 
@@ -374,14 +382,14 @@ class SimulateView(QWidget):
         construction; refreshing from the container is an explicit action, not a startup cost.
         """
         scenario = _optional("model.scenario")
-        rows = SCENARIO_FALLBACK
+        rows: tuple[tuple[str, str], ...] = (("scenario", "model.scenario not available"),)
         if scenario is not None:
             try:
                 sc = scenario.load()
                 self.cross.set_facts(sc)
                 rows = _scenario_rows(sc)
             except Exception as exc:              # a broken cache is not worth a dead window
-                rows = SCENARIO_FALLBACK + (("error", "%s" % exc),)
+                rows = (("error", "model.scenario failed: %s" % exc),)
         for name, text in rows:
             val = QLabel(str(text))
             val.setProperty("role", "caption")
@@ -434,6 +442,8 @@ class SimulateView(QWidget):
             self.device_group.button(0 if cfg.device is Device.GPU else 1).setChecked(True)
             self.snapshots.setValue(cfg.snapshots)
             self.compare.setChecked(cfg.compare_kwave)
+            match = next((n for n, c in self._presets.items() if c == cfg), None)
+            self.preset.setCurrentText(match or CUSTOM)
         finally:
             self._loading = False
         self._on_change()
@@ -442,6 +452,18 @@ class SimulateView(QWidget):
         return tuple(st for st, cb in self.stage_boxes.items() if cb.isChecked())
 
     # ---- reactions -----------------------------------------------------------------
+
+    def _sync_preset_label(self, cfg: RunConfig) -> None:
+        """A combo still reading "Published +20 deg" over edited fields is a lie, so any
+        divergence flips it to (custom). Selecting a preset again re-applies it."""
+        name = self.preset.currentText()
+        if name == CUSTOM:
+            return
+        known = self._presets.get(name)
+        if known is not None and known != cfg:
+            self._loading = True
+            self.preset.setCurrentText(CUSTOM)
+            self._loading = False
 
     def _on_preset(self, name: str) -> None:
         if self._loading or name == CUSTOM:
@@ -463,6 +485,7 @@ class SimulateView(QWidget):
         self.consequences.set_config(cfg)
         self._update_dots(cfg)
         self._update_guards(cfg)
+        self._sync_preset_label(cfg)
         self.config_changed.emit(cfg)
 
     def _update_dots(self, cfg: RunConfig) -> None:

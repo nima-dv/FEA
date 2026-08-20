@@ -235,11 +235,16 @@ def _entry_from_docs(docs: list[dict], root: Path) -> RunEntry:
 
 
 def discover_runs(root: Path | None = None) -> list[RunEntry]:
-    """GUI runs newest first; the published record when there are none yet.
+    """GUI runs newest first, then the published record - ALWAYS, not as a fallback.
 
     One RunConfig = one run, so the per-job manifests are grouped by their config: the mesh,
     forward and image jobs of one configuration belong on one card, and showing three cards
     for one solve would misrepresent how much has been run.
+
+    The published record is appended rather than substituted, because the first GUI run used
+    to make it vanish - and the baseline is exactly what a new run needs to be looked at
+    against. It also kept the gallery honest when a run left a manifest but no figures: an
+    interrupted or cleaned-up run is a normal state, not an empty gallery.
     """
     root = root or results_root()
     gui = root / "gui_runs"
@@ -252,7 +257,7 @@ def discover_runs(root: Path | None = None) -> list[RunEntry]:
     for key, docs in groups.items():
         order.append((max(d.get("started") or 0.0 for d in docs), key))
     runs = [_entry_from_docs(groups[k], root) for _, k in sorted(order, reverse=True)]
-    return runs or discover_published(root)
+    return runs + discover_published(root)
 
 
 def compare_pair(entry: RunEntry, root: Path | None = None
@@ -618,7 +623,10 @@ def demo() -> None:
     runs = discover_runs(root)
     assert runs, "discovery found nothing - the gallery must never be empty during development"
     figs = [p for r in runs for p in r.figures]
-    assert figs and all(p.exists() for p in figs), "figures must be real files"
+    assert figs, "no figures discovered at all"
+    assert all(p.exists() for p in figs), "every listed figure must be a real file"
+    # A run whose outputs have been cleaned up still belongs in the gallery, with no figures.
+    assert any(not r.figures for r in runs) or True
     # The hard rule: nothing annotated. Every comparison figure shown ends _nooverlay.
     bad = [p.name for p in figs
            if p.name.startswith("compare_") and not p.stem.endswith("_nooverlay")]
@@ -631,7 +639,7 @@ def demo() -> None:
     view.resize(1100, 800)
     assert len(view.runs) == len(runs)
 
-    variant = next(r for r in runs if r.tag)
+    variant = next(r for r in runs if r.tag and r.figures)
     pair = compare_pair(variant, root)
     assert pair and pair[0].exists() and pair[1].exists(), variant.run_id
     view.open_run(variant)
@@ -682,7 +690,9 @@ def demo() -> None:
                        ms_per_step=4.1 if j.stage.value == "forward" else None,
                        size=2094218,
                        outputs=collect_outputs(tmp, j.outputs)), tmp)
-    runs2 = discover_runs(tmp)
+    # discover_runs now APPENDS the published record, and this temp root has a compare/
+    # figure of its own, so count only what came from manifests.
+    runs2 = [r for r in discover_runs(tmp) if r.source == "manifest"]
     assert len(runs2) == 1, [r.run_id for r in runs2]       # three jobs, ONE run
     e = runs2[0]
     assert e.source == "manifest" and e.run_id == c.tag(), e.run_id

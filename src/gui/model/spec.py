@@ -106,7 +106,9 @@ class RunConfig:
     def tag(self) -> str:
         """Filename tag. Mirrors the convention already on disk, prefixed for safety."""
         sign = "p" if self.angle >= 0 else "m"
-        bits = [f"deg{self.degree}", f"s{self.scale:.2f}".replace(".", "p").rstrip("0")]
+        # :g, matching mesh_stem. The old form was f"s{scale:.2f}" then rstrip("0"), which
+        # turned scale 1.0 into the truncated "s1p" - and would have collided 1.0 with 1.00.
+        bits = [f"deg{self.degree}", f"s{self.scale:g}".replace(".", "p")]
         if self.notch is not Notch.PRESENT:
             # "healthy", not "absent": the record on disk is channel_data_..._healthy_p20deg,
             # and a GUI healthy run should sort next to it rather than under another word for
@@ -150,6 +152,18 @@ class RunConfig:
 
     def mesh_name(self) -> str:
         return self.mesh_stem() + ".msh"
+
+
+# The research team's runs, reduced to a few MB each by tools/extract_kwave_case.py. They
+# live under RESULTS and not RAW because they are OUR extractions rather than their originals
+# - data/.gitignore tracks them deliberately for that reason. Container-relative, because that
+# is what goes on a command line.
+KWAVE_CASE_DIR = "results/kwave_cases"
+
+
+def kwave_case_path(angle: float) -> str:
+    """Where the k-Wave case for this steering angle should be."""
+    return f"{KWAVE_CASE_DIR}/kwave_odnotch4mm_{angle:.0f}.npz"
 
 
 @dataclass(frozen=True)
@@ -294,6 +308,12 @@ def demo() -> None:
     assert any("wavefield_" in o for o in snap_fwd.outputs), snap_fwd.outputs
     assert len(plan(c, stages=(Stage.FORWARD,))[0].outputs) == 1
     assert "healthy" in replace(c, notch=Notch.ABSENT).tag()
+    # Pinned against the two files that exist: a wrong path here does not raise, it silently
+    # drops --theirs and produces a figure with no comparison in it.
+    assert kwave_case_path(20.0) == "results/kwave_cases/kwave_odnotch4mm_20.npz"
+    assert kwave_case_path(-20.0) == "results/kwave_cases/kwave_odnotch4mm_-20.npz"
+    assert replace(c, scale=1.0).tag() == "gui_deg4_s1_p20deg", replace(c, scale=1.0).tag()
+    assert c.tag() == "gui_deg4_s0p8_p20deg", c.tag()
 
     w = replace(c, artifact_reduction=ArtifactReduction.WIDE_DOMAIN)
     assert "--x-min" in _mesh_argv(w) and w.mesh_name() == "ili_mesh_s0p8_w165.msh"
