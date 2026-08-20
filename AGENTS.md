@@ -25,11 +25,13 @@ The fetch URL is untouched, so `git submodule update --remote src/kwave` still w
 
 **A subagent does not inherit this file.** Restate this section verbatim in its prompt.
 
-### `data/derrell/` is bulk input, never committed
+### The raw k-Wave workspaces are bulk input, never committed
 
-~423 MB of the research team's raw k-Wave output. Each `_workspace.mat` is ~122 MB, over
-GitHub's hard 100 MB per-file limit, so a push carrying one is **rejected outright**.
-Gitignored. Mounted read-only at `/data` in the container.
+~423 MB of the research team's raw output, at `presentation/data/k-wave/raw/derrell/<run>/`.
+Each `_workspace.mat` is ~122 MB, over GitHub's hard 100 MB per-file limit, so a push carrying
+one is **rejected outright**. `*.mat` is gitignored repo-wide for that reason. Only the extracted
+`kwave_cases/*.npz` (a few MB each) are tracked. `docker/run.ps1` also mounts `data/raw` at
+`/raw` read-only when that directory exists; `lib/paths.py` `RAW` resolves whichever applies.
 
 ---
 
@@ -51,7 +53,7 @@ crack-detection sim. Pure Python in Docker.
 baseline as of 2026-08-19 - it matches the options the research team's own
 `beamforming_script_simulation.py` passes. `--chain legacy` is frozen and is the only way to
 reproduce anything published before then. Untagged result filenames always mean the current
-baseline; see `results/compare/NAMING.md`.
+baseline; see `presentation/data/compare/NAMING.md`.
 
 **FEM boundary treatment: still open.** `legacy boundary` is what every published figure uses;
 `--abc-legacy` and `--sponge-mm` variants are experiments, not defaults. Do not quietly adopt one.
@@ -67,7 +69,7 @@ the CPU, because the official FEniCSx GPU route needs a CUDA-enabled PETSc the s
 not ship. Measured at about **19x** on the production workload (2.4 h -> 7.7 min) and **validated**:
 `tools/gpu_gate.py` scores a GPU run against the stored CPU record on ARRIVAL TIME, not on a
 norm, with thresholds pre-registered. Both tests passed at 1e-12 samples of drift and the imaging
-metrics are identical. Evidence in `results/perf/gpu_gate.txt`. The CPU path stays the default;
+metrics are identical. Evidence in `presentation/data/perf/gpu_gate.txt`. The CPU path stays the default;
 pass `--gpu` to opt in.
 
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.

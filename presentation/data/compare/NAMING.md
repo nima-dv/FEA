@@ -1,4 +1,4 @@
-# Filename tags in results/compare/
+# Filename tags in presentation/data/compare/
 
 Pattern: `compare_<angle>deg[_tag].png` and `images_<angle>[_tag].npz`, written by
 `repro/compare_images.py --tag <tag>`. `p20` / `m20` mean +20 / -20 deg steering.

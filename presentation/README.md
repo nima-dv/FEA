@@ -27,10 +27,11 @@ with no licence either way.
 
 ```
 presentation/
-  data/              the published record - 101 files, ~450 MB, all version-controlled
+  data/              the published record - 123 tracked files, all version-controlled
     compare/         head-to-head figures and the beamformed image caches
     ili_forward/     channel data from every published solve
-    k-wave/          the research team's runs, extracted to a few MB each
+    k-wave/          kwave_cases/ their runs extracted to a few MB each (tracked), and
+                     raw/derrell/ their original workspaces (~423 MB, *.mat gitignored)
     viz/             animations, wavefield stills, the mesh and artifact figures
     zoeppritz/       mode conversion against the exact fluid-solid solution
     cavity_scattering/  defect scattering against the exact Pao & Mow series
@@ -96,8 +97,8 @@ a screenshot. If a number appears in the brief or the dossier, the script that p
 in `scripts/` and the data it read is in `data/`.
 
 **Nothing in here is written by the GUI.** The app writes to `data/results` in the project
-root, its output filenames carry a `gui_` prefix, and its runner refuses outright to write to
-any git-tracked path. Three independent reasons a routine run cannot land in the record.
+root, its output filenames carry a `gui_` tag prefix, and its runner refuses outright to write
+to any git-tracked path. Three independent reasons a routine run cannot land in the record.
 
 ## Adding something
 

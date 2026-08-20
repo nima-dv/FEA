@@ -31,7 +31,7 @@ data/                routine run output. Nothing here is version-controlled.
 ```
 
 The split that matters is **`presentation/` against `data/`**. `presentation/` holds the
-published record — 101 files, all tracked, all cited by the brief or the dossier. `data/` holds
+published record — 123 tracked files, all cited by the brief or the dossier. `data/` holds
 whatever the last run produced, and none of it is version-controlled: a single solve writes
 ~42 MB of channel data and a snapshot run 476–966 MB, there is going to be a lot of it, and it
 regenerates. A folder boundary does that job better than any ignore rule, because it cannot be

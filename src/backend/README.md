@@ -1,8 +1,8 @@
-# Fea / research / fenics — FEM ultrasound wave-sim (run & maintain guide)
+# src/backend — FEM ultrasound wave-sim (run & maintain guide)
 
 FEniCS/DOLFINx finite-element research for DarkVision ultrasound simulation. Pure Python,
-containerised — **independent of the C++/CUDA `Fea` build** (this is not `Fea/python/`, which is
-reserved for the compiled `feapy` pybind11 module).
+containerised. This is **the software**; the published evidence and the scripts that build it
+live in `presentation/` (its own README).
 
 > **The "why" — asks, constraints, frozen scenario, plan, current state, and the full results
 > tables — lives in the branch README: `F:/code/readme/rnd-nima-FEA-README.md`. Read that first.**
@@ -15,39 +15,42 @@ reserved for the compiled `feapy` pybind11 module).
 
 ---
 
-## 0. Headline result (2026-08-12)
+## 0. Headline result
 
 Our FEM channel data and the research team's k-Wave channel data pushed through **their own
-beamformer**, so the forward solver is the only difference. **Both valid steering angles:**
+beamformer**, so the forward solver is the only difference. **Both valid steering angles, on the
+adopted `faithfulbf` imaging chain** (see `presentation/data/compare/NAMING.md`):
 
 | metric (true value) | k-Wave +20 | **FEM +20** | k-Wave -20 | **FEM -20** |
 |---|---|---|---|---|
 | crack x error (38.25 mm) | 0.413 | **0.165** | 0.332 | **0.084** |
-| notch extent (4.0 mm) | 3.23 (-19%) | **3.73 (-6.8%)** | 6.33 (+58%) | **3.85 (-3.8%)** |
-| crack / clutter RMS | 22.8 dB | **24.0** | 23.1 dB | **24.0** |
-| crack / clutter p95 | 16.6 dB | **17.0** | **17.0 dB** | 16.9 (tie) |
-| crack / worst clutter | 10.3 dB | **12.2** | 9.8 dB | **10.4** |
+| notch extent (4.0 mm) | 3.48 (-13.0%) | **3.73 (-6.8%)** | 3.85 (-3.8%) | 3.85 (-3.8%, tie) |
+| crack / clutter RMS | 24.03 dB | **26.46** | 24.47 dB | **26.26** |
+| crack / clutter p95 | 17.90 dB | **18.90** | 18.41 dB | **18.88** |
+| crack / worst clutter | 11.57 dB | **14.12** | 11.83 dB | **13.47** |
 
-**FEM better in 29/30 robustness checks** across the two angles (15/15 at +20, 14/15 at -20).
-The one honest tie is p95 contrast at -20 deg, 0.1 dB behind.
+**FEM better in 25/30 robustness checks** across the two angles (14/15 at +20, 11/15 at -20).
+Lead with what is unanimous: **contrast 10/10** at both angles and every guard distance, and
+position 8/8. Sizing is 15/20 - a +20 deg win and an exact TIE at -20 deg. Say the tie out loud.
 
 **The -20 deg numbers were PREDICTED before the solve ran** (23-25 dB, 3.7-4.2 mm extent) and
-landed inside the range, so the bandwidth mechanism in §5 is out-of-sample tested, not fitted.
+landed inside the range on the chain in use at the time, so the bandwidth mechanism in §5 is
+out-of-sample tested, not fitted.
 
 **Our sizing is angle-consistent and theirs is not:** 3% spread across +-20 deg against their
-96%. Since both datasets pass through the same imaging chain, that asymmetry is in their forward
+11%. Since both datasets pass through the same imaging chain, that asymmetry is in their forward
 data. For an inspection tool this matters more than any single dB figure - real cracks are never
-conveniently on-axis.
+conveniently on-axis. **The 96% figure quoted before 2026-08-19 was inflated by our own imaging
+defect - do not use it.** The advantage is real but 3.7x, not 30x.
 
-**WHY we win: numerical bandwidth, NOT geometry.** The C4 controlled experiment
-(`presentation/scripts/c4_staircase.py`) staircased the curved ID at k-Wave's own 50 um and measured only
-**+0.61 dB** of extra clutter - real in direction, far too small to explain the win. So do not
-say "we win because the mesh conforms". The defendable mechanism is that we resolve the pulse
-BANDWIDTH (see section 5), which was predicted before the -20 deg solve and confirmed. The
-untested candidate for the remainder is k-Wave's crack VOID, filled with 500 m/s material at
-only 2.5 points per wavelength - a much cruder approximation than staircasing a smooth arc.
+**WHY we win is OPEN, and it is not geometry.** C4 (`presentation/scripts/c4_staircase.py`)
+staircased the curved ID at k-Wave's own 50 um: **+0.61 dB**. C5 filled our notch with their
+500 m/s material: **0.07 dB**. Both eliminated, so do not say "we win because the mesh conforms".
+Numerical bandwidth explains **our own convergence** from losing to winning - predicted before
+the -20 deg solve and confirmed - but on raw bandwidth k-Wave is still ahead of us, so it does
+not explain exceeding them. "We measure better and cannot yet attribute it" is the honest position.
 
-See the branch README §4.7-4.8 for what is and is not defendable: sizing is converged, contrast
+See the branch README §4.7-4.12 for what is and is not defendable: sizing is converged, contrast
 is a **lower bound** (still improving with refinement), and position is at the imaging grid's
 pixel limit, so quote it as "sub-pixel" rather than as a ratio.
 
@@ -69,13 +72,19 @@ container via Docker Desktop (WSL2). Nothing is installed on Windows itself.
 - **`dvfenics:latest`** is the older image, kept as a rollback.
 
 ```powershell
-cd F:\code\FEA\src\fenics
+cd F:\code\FEA
 ./run.ps1 python3 lib/bf_loader.py          # env smoke test: DOLFINx + their beamformer
 ./run.ps1                                   # interactive bash shell
 ```
 
-`run.ps1` mounts this folder read-write at `/work`, their beamformer read-only at `/opt/bf`, and
-`../../data` read-only at `/data`. Override the image with `$env:DVFENICS_IMAGE`.
+The real launcher is `docker/run.ps1`; the repo root carries a forwarder so every documented
+command copy-pastes from the root. Mounts: `src/backend` -> `/work` rw, `data/results` ->
+`/work/results` rw, `presentation` -> `/work/presentation` rw, `data/raw` -> `/raw` **ro**, their
+beamformer -> `/opt/bf` **ro**. So a container-side path stays `results/ili_mesh/...` even though
+on the host the outputs sit outside the source tree. `lib/paths.py` is the single place that
+resolves either layout. `./run.ps1 -PrintArgs` emits the whole contract as JSON (the GUI reads
+it). Override the image with `$env:DVFENICS_IMAGE`; `-Gpu` selects `dvfenics:gpu` and passes the
+device through.
 
 **Gotchas that will waste your afternoon:**
 
@@ -83,7 +92,7 @@ cd F:\code\FEA\src\fenics
 |---|---|
 | `working directory 'C:/Program Files/Git/work' is invalid` | Git Bash rewrites container paths. Use PowerShell, or prefix `MSYS_NO_PATHCONV=1`. |
 | PowerShell reports failure on a successful run | It wraps native **stderr** in error records; their package emits harmless `SyntaxWarning`s. Don't use `2>&1`; or run via Bash. |
-| `ModuleNotFoundError: beamformer` | Submodule not checked out: `git submodule update --init --depth 1 ../kwave` |
+| `ModuleNotFoundError: beamformer` | Submodule not checked out: `git submodule update --init --depth 1 src/kwave` |
 | `NotImplementedError: engine must be 'cuda'` | Receive-side Fermat TOF is GPU-only. Use the CPU `ray` path (the default in `lib/tt_t_image.py`). |
 | A background solve looks dead (empty log, nothing in `docker ps`) | **It probably isn't.** Solves print nothing during the time loop, and `docker ps` has returned nothing while a container was up. Use `docker ps -a`. |
 
@@ -91,38 +100,47 @@ cd F:\code\FEA\src\fenics
 
 ## 2. Reproducing the headline result
 
-Their raw runs in `data/derrell/` are extracted first, then two solves and one comparison.
-Total ~5 h of compute. Run from this folder.
+Their raw runs are extracted first, then two solves and one comparison. **Run every command from
+the repo root** (`F:\code\FEA`) — the forwarder there is what makes these paths work. On the GPU
+a production angle is 7.7 min; on a CPU core it is 2.4 h.
+
+The extracted k-Wave cases and the published channel data are already committed under
+`presentation/data/`, so steps 1 and 3 only need re-running if you are regenerating them.
 
 ```powershell
 # 1. Extract the research team's runs (their raw data stays untouched).
-#    Write the .npz UNDER results/ - gitignored there, and inside the /work mount.
 ./run.ps1 python3 tools/extract_kwave_case.py `
-    --run "/data/derrell/2026-08-11 12-46-37 Simulation_ODnotch4mm_20" `
-    --out results/kwave_cases/kwave_odnotch4mm_20.npz
+    --run "presentation/data/k-wave/raw/derrell/2026-08-11 12-46-37 Simulation_ODnotch4mm_20" `
+    --out presentation/data/k-wave/kwave_cases/kwave_odnotch4mm_20.npz
 
 # 2. Build the conforming mesh at the working resolution  (~10 s)
 ./run.ps1 python3 mesh/ili_mesh.py --quad --scale 0.8
 
-# 3. Forward solve: degree 4 on that mesh  (~2.4 h, 163678 steps)
-./run.ps1 python3 repro/ili_forward.py --angle 20 --degree 4 `
+# 3. Forward solve: degree 4 on that mesh  (163678 steps; 7.7 min on the GPU, 2.4 h on a core)
+./run.ps1 -Gpu python3 repro/ili_forward.py --angle 20 --degree 4 --gpu --abc-legacy `
     --mesh results/ili_mesh/ili_mesh_s0p8.msh --tag deg4_s0p8_p20deg
 
 # 4. Both datasets through THEIR beamformer -> the head-to-head table + figure
-./run.ps1 python3 repro/compare_images.py --angle 20 `
-    --ours results/ili_forward/channel_data_deg4_s0p8_p20deg.npz `
-    --theirs results/kwave_cases/kwave_odnotch4mm_20.npz
+./run.ps1 python3 repro/compare_images.py --angle 20 --no-overlay `
+    --ours presentation/data/ili_forward/channel_data_deg4_s0p8_p20deg.npz `
+    --theirs presentation/data/k-wave/kwave_cases/kwave_odnotch4mm_20.npz
 
 # 5. Confirm the claims survive every reasonable analysis choice
 ./run.ps1 python3 presentation/scripts/metric_robustness.py --angle 20
 ```
 
+`--abc-legacy` is the boundary treatment every published figure uses; it is not the flag default.
+Imaging always passes `--no-overlay` — no annotated figure is published any more.
+
 ### The demonstration figures
+
+These build the published record, so they live in `presentation/scripts/` — see
+`presentation/README.md` for the full rebuild list.
 
 ```powershell
 # wavefield animation: add --snapshots to any solve, then render (degree 3 is enough here)
-./run.ps1 python3 repro/ili_forward.py --angle 20 --degree 3 `
-    --mesh results/ili_mesh/ili_mesh.msh --tag snap_p20deg `
+./run.ps1 -Gpu python3 repro/ili_forward.py --angle 20 --degree 3 --gpu --abc-legacy `
+    --mesh results/ili_mesh/ili_mesh_tri.msh --tag snap_p20deg `
     --snapshots 240 --snap-window "18,46"
 ./run.ps1 python3 viz/wavefield_gif.py --in results/ili_forward/wavefield_snap_p20deg.npz `
     --stride 3 --fps 10 --colors 48 --smooth 2 --stills "22,27,31,35"
@@ -138,37 +156,48 @@ Total ~5 h of compute. Run from this folder.
 ## 3. Layout
 
 ```
-fenics/
-├─ Dockerfile, requirements.txt, run.ps1     infra
+src/backend/                 THE SOFTWARE. Mounted at /work, so it is the working directory.
 ├─ lib/
+│   ├─ paths.py           WHERE THINGS LIVE. One definition; env vars in-container, walk-out
+│   │                     to the repo root on the host. Never rebuild a results path by hand.
 │   ├─ bf_loader.py       loads THEIR beamformer without executing its __init__.py
 │   └─ tt_t_image.py      the TT-T imaging chain + image_metrics(), shared by all comparisons
 ├─ mesh/
 │   └─ ili_mesh.py        conforming gmsh mesh: exact ID/OD arcs + notch as a real void
 ├─ tools/
-│   ├─ extract_kwave_case.py   their *_workspace.mat -> compact .npz (refuses to write to F:)
+│   ├─ extract_kwave_case.py   their *_workspace.mat -> compact .npz
+│   ├─ gpu_probe.py, gpu_gate.py   is the GPU path faster, and does it still arrive on time
+│   ├─ mpi_scaling.py, matrix_free_probe.py, cfl_limit.py   cost and scaling probes
+│   ├─ scenario_dump.py        the frozen scenario as JSON (the GUI reads it)
+│   ├─ publication_backup.py   snapshot the published record
 │   └─ probe_bf_deps.py        how the beamformer dependency list was derived
 ├─ validation/             V&V against EXACT solutions
 │   ├─ bf_roundtrip.py         gate: their beamformer on their data == their image
 │   ├─ zoeppritz.py            angle-resolved fluid-solid mode conversion
 │   └─ cavity_scattering.py    defect scattering vs the exact Pao & Mow series
 ├─ repro/                  the ILI simulation and the comparison
-│   ├─ ili_forward.py          THE FORWARD SOLVE (--snapshots for the animations)
+│   ├─ ili_forward.py          THE FORWARD SOLVE (--gpu, --snapshots for the animations)
 │   ├─ analyze_forward.py      arrival times vs analytic ToF
 │   ├─ compare_images.py       FEM vs k-Wave through one identical beamformer
-│   ├─ compare_rf.py           raw channel-data diff, no beamformer
-│   ├─ metric_robustness.py    do the claims survive different analysis choices?
-│   ├─ c4_staircase.py         C4: our solver vs ITSELF, staircased vs conforming ID
 │   └─ ili_gate.py, ili_angled.py, ili_beamform.py, ili_realistic.py, animate_gate.py,
-│      render_*.py             earlier work; ili_realistic (corrosion) is LEGACY
-├─ viz/                    Phase D: the demonstration figures and animations
-│   ├─ wavefield_gif.py        D1: the beam mode-converting at the ID and hitting the notch
-│   └─ mesh_zoom.py            D4: what "conforming" means, drawn from the real meshes
-└─ results/<name>/         outputs. Figures tracked; .npz/.msh/.h5/.xdmf gitignored.
+│      analyze_gate.py, render_*.py    earlier work; ili_realistic (corrosion) is LEGACY
+├─ viz/
+│   └─ wavefield_gif.py        D1: the beam mode-converting at the ID and hitting the notch
+├─ tests/                  assert-based self-checks
+└─ results/                empty mountpoint on the host; data/results is mounted here.
 
-  ../../data/derrell/      their 3 runs, ~423 MB, GITIGNORED -> mounted read-only at /data
-  ../kwave/                submodule: their k-Wave driver .m + their beamformer
+  ../../data/results/      routine run output. NOT version-controlled, and voluminous.
+  ../../presentation/      THE EVIDENCE: its own data, scripts and documents. Own README.
+  ../kwave/                submodule: their k-Wave driver .m + their beamformer (READ-ONLY)
 ```
+
+**The split that matters:** if the GUI or a routine run needs a script it belongs here; if it
+exists only to produce publication material it belongs in `presentation/scripts/`. That is why
+`metric_robustness.py`, `c4_staircase.py`, `compare_rf.py`, `mesh_zoom.py`,
+`artifact_reduction.py`, `bandwidth_convergence.py`, `baseline_subtract.py` and
+`build_artifacts.py` are not in this tree. `validation/` stays here on purpose: its figures are
+publication material, but what it does is check the solver, so it has to re-run whenever the
+solver changes.
 
 ---
 
@@ -182,7 +211,7 @@ fenics/
 | `lib/tt_t_image.py` | The TT-T chain (decimate 23, sparse 128 receive, 0.6–1.4 f0 bandpass, Hilbert, Snell transmit TOF, ray receive TOF, Kirchhoff with the 60/80 deg angle filter) plus `image_metrics()`. Used for BOTH datasets so imaging cannot bias the comparison. | working |
 | `mesh/ili_mesh.py` | Conforming mesh. `--quad` (use it), `--scale`, `--no-notch` (healthy variant), `--h-notch`. Verifies 7 properties incl. arc conformity in microns and a DOLFINx round trip. | working |
 | `tools/extract_kwave_case.py` | Their 40–230 MB MAT v7 workspace -> few-MB `.npz`. | working |
-| `validation/bf_roundtrip.py` | **The gate.** Their beamformer on their own data vs their archived `TT_T.mat`: grid 370×358 exact, peak displacement **0.000 mm**, amplitude within **2.4 %**, correlation 0.929. **Do not raise `--nrays`; higher is worse.** | working |
+| `validation/bf_roundtrip.py` | **The gate.** Their beamformer on their own data vs their archived `TT_T.mat`: grid 370×358 exact, peak displacement **0.000 mm**, amplitude within **2.4 %**, correlation 0.929. **Do not raise `--nrays`; higher is worse.** | **passed once, cannot re-run** — its reference `TT_T.mat` and 0 deg case went with Dropbox. State it as such. Partial substitute: our chain reproduces k-Wave's published metrics to 3 s.f. |
 | `repro/ili_forward.py` | The forward solve. **Use `--degree 4`.** Asserts the transmit delay span against k-Wave's recorded values, derives dt from the true minimum edge, and guards against divergence. | working |
 | `repro/analyze_forward.py` | Arrival times vs analytic ToF. Requires peak *prominence*, so it reports NOT RESOLVED rather than inventing an echo. | working |
 | `repro/compare_images.py` | The head-to-head table + figure. Panels normalised to their OWN max (source conventions differ). | working |
@@ -208,11 +237,16 @@ fenics/
 
 ## 5. Numerical configuration — read before changing anything
 
-| config | DOF | dt | steps | per solve | crack/clutter |
+| config | DOF | dt | steps | per solve (CPU / GPU) | crack/clutter |
 |---|---|---|---|---|---|
 | P3, scale 1.0 | 529 k | 0.865 ns | 69 k | ~15 min | 12.2 dB (**loses**) |
 | P4, scale 1.0 | ~941 k | 0.486 ns | 123 k | ~1.2 h | 19.5 dB |
-| **P4, scale 0.8** | ~1.5 M | 0.366 ns | 164 k | **~2.4 h** | **24.0 dB (wins)** |
+| **P4, scale 0.8** | ~1.5 M | 0.366 ns | 164 k | **~2.4 h / 7.7 min** | **26.5 dB (wins)** |
+
+The two upper rows are legacy-chain numbers and cannot be regenerated (their channel data is
+gone); they show the refinement trend only. The bottom row is on the adopted chain. The GPU
+figure is the time loop only — meshing and assembly stay on the CPU — and it is validated on
+ARRIVAL TIME by `tools/gpu_gate.py`, not on a norm (`presentation/data/perf/gpu_gate.txt`).
 
 **Why degree 4 and not 3.** "4 nodes per wavelength" must be satisfied at the pulse's UPPER usable
 frequency, not its centre. A 1-cycle burst carries ~100 % bandwidth — real energy to 6–8 MHz —
@@ -243,9 +277,12 @@ CFL terms because water is 3.8x slower than steel).
 
 ## 6. Conventions
 
-- Root = infra; `lib/` = shared code; `mesh/` = geometry; `tools/` = utilities; `validation/` = V&V
-  against exact solutions; `repro/` = the ILI simulation and comparison;
-  `viz/` = Phase D figures; `results/<name>/` = outputs.
+- `lib/` = shared code; `mesh/` = geometry; `tools/` = utilities and probes; `validation/` = V&V
+  against exact solutions; `repro/` = the ILI simulation and comparison; `viz/` = animations.
+  Infra is in `docker/`; published material is in `presentation/`.
+- **Resolve output paths through `lib/paths.py`** (`RESULTS`, `RAW`, `PRESENTATION`, `PRES_DATA`),
+  never by rebuilding one from a script's own location. That assumption broke when data was
+  separated from source.
 - **Cache heavy intermediates** (`channel_data_*.npz`, `images_*.npz`) so re-analysis and
   re-rendering never re-solve. All the comparison and robustness scripts read cached data.
 - Figures are tracked; large regenerable artefacts (`.npz`, `.msh`, `.h5`, `.xdmf`) are gitignored.
@@ -257,10 +294,16 @@ CFL terms because water is 3.8x slower than steel).
 
 **Done:** environment; capability chain (Poisson -> fluid–solid coupling); their beamformer running
 on our data; exact-solution validation of oblique mode conversion and defect scattering; the
-conforming mesh (arc error 0.05 um vs ~140 um for a staircase); the forward solve, timing-validated;
-and the **head-to-head at 20 deg, which FEM wins on every metric, 15/15 robustness checks**.
+conforming mesh (arc error 0.05 um vs ~140 um for a staircase); the forward solve,
+timing-validated; the head-to-head at **both** valid angles (25/30 robustness checks); the
+controlled experiments C4 (staircase, +0.61 dB) and C5 (crack fill, 0.07 dB), both negative; the
+healthy-wall baseline; the wavefield animation and the mesh-conformity figure; and the GPU time
+loop, ~19x and gated on arrival time.
 
-**Remaining:** −20 deg at P4/s0.8 (a second valid angle — 0 deg cannot test TT-T, since there is
-almost no mode conversion at normal incidence); the **C4 staircase-vs-conforming** controlled
-experiment that would isolate *why* we localise better; one more refinement to converge the CNR
-number; and **Phase D visualisations, which do not exist yet**. See the branch README §5.
+**Remaining:** convergence / GCI error bars (B4 — the last piece of promised rigour); a third and
+fourth steering angle, since sizing is a +20 deg win and a tie at -20; and a defect geometry a
+grid represents badly, which is the one structural advantage we assert and have never
+demonstrated. The residual edge artefact is characterised rather than open: six candidate causes
+eliminated by measurement, and part of it is a grating lobe inherent to the array and present in
+both solvers. **0 deg is not a third angle** — normal incidence produces almost no mode
+conversion, so neither solver images anything meaningful there. See the branch README §5.

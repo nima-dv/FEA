@@ -10,10 +10,11 @@ and shows what comes back.
    dt) is labelled an *estimate* until the backend prints the real number. If the app ever
    decides a value the solver should decide, GUI runs and published runs can diverge.
 2. **Every job records its argv**, so it reproduces from a terminal without the app.
-3. **No job may overwrite a git-tracked file.** `data/results` holds the published record for
+3. **No job may overwrite a git-tracked file.** `presentation/` holds the published record for
    the R&D challenge — the k-Wave +20° baseline and everything scored against it. A default
-   GUI run would otherwise regenerate exactly those filenames. Two defences: the
-   `gui_` tag prefix in `model/spec.py`, and a hard check in the runner.
+   GUI run would otherwise regenerate exactly those filenames. Three defences: the app writes
+   to `data/results` and never to `presentation/`, the `gui_` tag prefix in `model/spec.py`,
+   and a hard check in the runner.
 4. **No annotated figures.** Imaging always passes `--no-overlay`.
 5. **One container contract.** `docker/run.ps1 -PrintArgs` emits image, mounts and env as
    JSON. Read it once; never hardcode a mount.
