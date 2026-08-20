@@ -111,17 +111,16 @@ def check(config: RunConfig, sc: scen.Scenario | None = None,
                            f"needs ~{disk.value/1e9:.2f} GB ({disk.note}), "
                            f"{context.free_bytes/1e9:.2f} GB free"))
 
-    # --- BLOCK: a comparison with nothing to compare to ---------------------------------
-
     # --- WARN: under-resolved mesh -------------------------------------------------------
     res = derived.nodes_per_wavelength(config, sc)
     if res.value < derived.NODES_MIN:
         s = derived.scale_for_nodes(config, sc)
         out.append(Finding(
             Severity.WARN, "scale",
-            f"~{res.value:.2f} nodes per wavelength in {res.binding} at "
+            f"~{res.value:.2f} nodes per wavelength in the {res.binding} at "
             f"{res.f_upper/1e6:.0f} MHz, below {derived.NODES_MIN:.1f}: the mesh low-passes "
-            f"its own pulse, which reads as a deeper, weaker notch. Use --scale {s:.2f}"))
+            f"its own pulse, which reads as a deeper, weaker crack. "
+            f"Set Mesh fineness to {s:.2f} or finer"))
 
     # --- WARN: snapshots are big --------------------------------------------------------
     if config.snapshots:
@@ -161,7 +160,7 @@ def demo() -> None:
     # a coarse mesh must warn AND name a scale that actually clears the warning
     coarse = RunConfig(scale=2.0)
     warn = [f for f in check(coarse, sc, ctx) if f.field == "scale"]
-    assert warn and "--scale" in warn[0].message, warn
+    assert warn and "Mesh fineness" in warn[0].message, warn
     fixed = replace(coarse, scale=derived.scale_for_nodes(coarse, sc))
     assert not [f for f in check(fixed, sc, ctx) if f.field == "scale"], "named scale must fix"
 

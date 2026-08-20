@@ -86,7 +86,7 @@ def rows_for(cfg: RunConfig) -> list[Row]:
     out.append(Row(
         r"$\sigma = \lambda\,(\nabla\!\cdot\!\mathbf{u})\,\mathbf{I}"
         r" + 2\mu\,\varepsilon(\mathbf{u}),\qquad"
-        r"\varepsilon = \tfrac{1}{2}(\nabla\mathbf{u} + \nabla\mathbf{u}^{T})$"))
+        r"\varepsilon = \frac{1}{2}(\nabla\mathbf{u} + \nabla\mathbf{u}^{T})$"))
 
     out.append(Row("\\mathrm{Regions}", heading=True))
     out.append(Row(r"$\mathrm{steel:}\ \ \mu > 0$"
@@ -119,8 +119,8 @@ def rows_for(cfg: RunConfig) -> list[Row]:
         note="one wave speed for both modes; over-damps shear by ~30% of amplitude, "
              "and is what every published figure uses"))
     out.append(Row(
-        r"$\Gamma_{abc}:\ \ \sigma\!\cdot\!\mathbf{n} = -\rho\big[c_P(\dot{\mathbf{u}}"
-        r"\!\cdot\!\mathbf{n})\mathbf{n} + c_S\,\dot{\mathbf{u}}_t\big]$",
+        r"$\Gamma_{abc}:\ \ \sigma\!\cdot\!\mathbf{n} = -\rho\left[c_P(\dot{\mathbf{u}}"
+        r"\!\cdot\!\mathbf{n})\mathbf{n} + c_S\,\dot{\mathbf{u}}_t\right]$",
         active=sponge,
         note="shear-matched: exact at normal incidence, leakier as the angle grows"
              if sponge else "not in force"))
@@ -132,12 +132,12 @@ def rows_for(cfg: RunConfig) -> list[Row]:
         note=f"degree {cfg.degree} elements"))
     out.append(Row(
         r"$u^{n+1} = 2u^{n} - u^{n-1}"
-        r" - \Delta t^{2}\,\mathbf{M}^{-1}\big(\mathbf{K}u^{n} - f^{n}\big)$",
+        r" - \Delta t^{2}\,\mathbf{M}^{-1}\left(\mathbf{K}u^{n} - f^{n}\right)$",
         note="explicit leapfrog; M is diagonal, so this is a division and not a solve"
              if cfg.quad else
              "WARNING: on triangles the lumped mass is only approximately diagonal"))
     out.append(Row(
-        r"$\Delta t \leq C\,\dfrac{h_{min}}{c_{max}\,p^{2}}"
+        r"$\Delta t \leq C\,\frac{h_{min}}{c_{max}\,p^{2}}"
         rf"\qquad \Delta t \approx {dt_s},\quad {steps_s}\ \mathrm{{steps}}$",
         note=f"C = {cfg.cfl:.2f}, same as k-Wave. One global step, set by the smallest cell "
              f"over the fastest wave"))
@@ -238,6 +238,14 @@ def demo() -> None:
 
     p.resize(640, 760)
     p._draw()
+    # draw_idle() defers, and a deferred draw never parses the mathtext - which is how a
+    # \frac that mathtext does not implement passed this check once already. Force it.
+    for cfg in (base,
+                replace(base, artifact_reduction=ArtifactReduction.SPONGE),
+                replace(base, notch=Notch.FILLED),
+                replace(base, quad=False, degree=3)):
+        p.set_config(cfg)
+        p._canvas.draw()          # raises on any unsupported symbol in any row
     print(f"equation.demo: ok ({len(p.rows)} rows, "
           f"{sum(1 for r in p.rows if not r.heading and not r.active)} dimmed)")
 

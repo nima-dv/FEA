@@ -28,8 +28,7 @@ from model.spec import Device, RunConfig, Stage, plan                     # noqa
 
 # Unique h_notch so the mesh stem cannot collide with anything already on disk - the coarse
 # notch is also what makes this run fast, since the smallest cell sets the global time step.
-CFG = RunConfig(scale=1.0, degree=3, h_notch=0.60, t_end=3.0e-6,
-                device=Device.GPU, compare_kwave=False)
+CFG = RunConfig(scale=1.0, degree=3, h_notch=0.60, t_end=3.0e-6, device=Device.GPU)
 TIMEOUT_S = 600
 
 

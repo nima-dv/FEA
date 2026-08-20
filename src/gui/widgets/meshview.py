@@ -1,4 +1,4 @@
-r"""Mesh inspector: the cells of a real .msh, coloured by size or quality, against the exact wall.
+r"""Mesh inspector: the cells of a real .msh, coloured by size or quality, against the wall.
 
 NO meshio ON THE GUI VENV
 The backend has meshio (viz/mesh_zoom.py imports it), but `.venv-gui` does not - checked with
@@ -36,11 +36,11 @@ if str(_GUI_ROOT) not in sys.path:
     sys.path.insert(0, str(_GUI_ROOT))
 
 from matplotlib.collections import LineCollection, PolyCollection              # noqa: E402
-from PySide6.QtCore import Qt                                                  # noqa: E402
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QLabel,      # noqa: E402
                                QVBoxLayout, QWidget)
 
-from widgets.mplcanvas import ACCENT, INK_SOFT, RULE, MplCanvas, Task                # noqa: E402
+from widgets.mplcanvas import (ACCENT, INK_SOFT, RULE, MplCanvas,               # noqa: E402
+                               Task)
 
 # Geometry in mm. The source of truth is mesh/ili_mesh.py in the backend, mirrored by
 # viz/mesh_zoom.py; restated here because the backend modules import lib.paths and are not
@@ -83,10 +83,6 @@ def meshes(root: Path) -> list[Path]:
 def _section(txt: str, name: str) -> str:
     i = txt.index("$" + name + "\n") + len(name) + 2
     return txt[i:txt.index("$End" + name)]
-
-
-def _nums(line: str) -> list[float]:
-    return [float(v) for v in line.split()]
 
 
 def read_msh(path: Path, report: Callable[[str], None] | None = None) -> Mesh:
@@ -234,8 +230,6 @@ class MeshView(QWidget):
         self.picker.currentIndexChanged.connect(lambda _i: self.load_current())
         self.color_by.currentIndexChanged.connect(self._draw)
         self.walls.toggled.connect(self._draw)
-        for name in ("xlim_changed", "ylim_changed"):
-            self.canvas.ax.callbacks.connect(name, lambda _ax: self._update_stats())
         self.canvas.set_readout(lambda x, z, ax: "x %8.3f mm   z %8.3f mm" % (x, z))
 
         if self.picker.count():
@@ -313,6 +307,11 @@ class MeshView(QWidget):
         ax.set_xlabel("x [mm]")
         ax.set_ylabel("z [mm]")
         self.canvas.true_aspect(True)
+        # Reconnected on every redraw, not once in __init__: Axes.clear() swaps in a FRESH
+        # CallbackRegistry, so a connection made before the first clear is silently dropped
+        # and the in-view statistics would then freeze at whatever the initial zoom was.
+        for name in ("xlim_changed", "ylim_changed"):
+            ax.callbacks.connect(name, lambda _ax: self._update_stats())
         if first_coll is not None:
             self._cb = self.canvas.colorbar(first_coll, self.color_by.currentText())
         self.canvas.canvas.draw_idle()

@@ -40,7 +40,7 @@ from types import SimpleNamespace
 if __package__ in (None, ""):     # direct run: make src/gui the import root
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (QComboBox, QGridLayout, QHBoxLayout, QLabel, QSizePolicy,
                                QToolButton, QWidget)
 
@@ -62,14 +62,37 @@ except ImportError:                                        # pragma: no cover - 
 # form is now five groups deep; a fixed column is the cheapest way to get one shared edge.
 LABEL_W = 122
 
-_EMPTY = SimpleNamespace(label="", hint="", detail="", flag="", unit="", choices={},
-                         warn=False)
-
 _QMARK_CSS = ("QToolButton {{ color: {ink_soft}; background: transparent;"
               " border: 1px solid {rule}; border-radius: 8px; padding: 0px;"
               " min-width: 16px; max-width: 16px; min-height: 16px; max-height: 16px; }}"
               "QToolButton:hover {{ color: {accent_hi}; border-color: {accent_hi}; }}"
               "QToolButton:checked {{ color: {accent}; border-color: {accent}; }}")
+
+
+class WrapLabel(QLabel):
+    """A word-wrapped caption that takes its height from its WIDTH, not from a guess.
+
+    Two Qt defaults fight word wrap inside a scroll area, and both had to go:
+
+      * minimumSizeHint() of a wrapped label is the height it needs at its MINIMUM width, and
+        the form sets that minimum to 1 px so a paragraph wraps instead of widening the
+        column. Left alone the two together demand thousands of pixels of minimum height.
+      * QSizePolicy.Minimum takes the minimum height from sizeHint() instead, which for a
+        wrapped label is the same tall guess.
+
+    Either one turns a QScrollArea into a page of blank space under the last field with a
+    scrollbar that goes nowhere. Reporting no minimum and a shrinkable policy leaves the
+    height to heightForWidth, which was the right number all along.
+    """
+
+    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(text, parent)
+        self.setWordWrap(True)
+        self.setMinimumWidth(1)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+
+    def minimumSizeHint(self) -> QSize:      # noqa: N802 - Qt name
+        return QSize(0, 0)
 
 
 def help_for(name: str):
@@ -90,6 +113,19 @@ def choice_key(value: object) -> str:
     return value.value if isinstance(value, enum.Enum) else str(value)
 
 
+def shrink(box: QComboBox) -> None:
+    """Let a combo be narrower than its longest item.
+
+    A QComboBox sizes its MINIMUM to the widest string in it by default, so one long label -
+    "Wavefield snapshots +20 deg", "Crack (4 mm x 1 mm slot)" - sets the minimum width of the
+    whole form column, and at 1100 px the hints get clipped instead of wrapped. The popup
+    still sizes to its contents, so nothing becomes unreadable.
+    """
+    box.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    box.setMinimumContentsLength(10)
+
+
 def build_combo(name: str, values: tuple, parent: QWidget | None = None) -> QComboBox:
     """A combo showing model.help's friendly labels, carrying the typed values as item data.
 
@@ -98,6 +134,7 @@ def build_combo(name: str, values: tuple, parent: QWidget | None = None) -> QCom
     """
     h = help_for(name)
     box = QComboBox(parent)
+    shrink(box)
     for v in values:
         key = choice_key(v)
         label, hint = h.choices.get(key, (key, ""))
@@ -124,6 +161,9 @@ class FieldRow(QWidget):
         grid.setVerticalSpacing(1)
         grid.setColumnMinimumWidth(0, LABEL_W)
         grid.setColumnStretch(1, 1)
+        # Reserved even when the "?" is hidden (a field whose copy is all in its choices), so
+        # a row without one does not grow its input past every other row's right edge.
+        grid.setColumnMinimumWidth(2, 16)
 
         self.label = QLabel(h.label or name)
         self.label.setFixedWidth(LABEL_W)
@@ -157,6 +197,7 @@ class FieldRow(QWidget):
 
         self.flag = QLabel(h.flag)
         self.flag.setFixedWidth(LABEL_W)
+        self.flag.setWordWrap(True)     # "--no-notch / --notch-fill" does not fit on one line
         self.flag.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
         self.flag.setStyleSheet("color: %s; font-size: 10px; font-family: %s;"
                                 % (PALETTE["ink_soft"], PALETTE["mono"]))
@@ -195,11 +236,8 @@ class FieldRow(QWidget):
     # ---- construction helpers -------------------------------------------------------
 
     def _caption(self, text: str) -> QLabel:
-        lab = QLabel(text)
+        lab = WrapLabel(text)
         lab.setProperty("role", "caption")
-        lab.setWordWrap(True)
-        lab.setMinimumWidth(1)          # or a wrapped label widens the column instead of wrapping
-        lab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         return lab
 
     def _with_unit(self, widget: QWidget, unit: str) -> QWidget:
