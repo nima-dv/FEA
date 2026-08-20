@@ -43,7 +43,7 @@ if str(_GUI_ROOT) not in sys.path:
 from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QTabWidget,     # noqa: E402
                                QVBoxLayout, QWidget)
 
-from views.results import discover_runs, results_root                          # noqa: E402
+from views.results import discover_runs, presentation_root, results_root                          # noqa: E402
 from widgets.imageprobe import ImageProbe                                     # noqa: E402
 from widgets.mplcanvas import INK_SOFT, STAMP                                 # noqa: E402
 from widgets.meshview import MeshView                                         # noqa: E402
@@ -100,7 +100,8 @@ class InspectView(QWidget):
 
     def __init__(self, root: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.root = root or results_root()
+        # Image caches and animations are published data and live in presentation/.
+        self.root = root or presentation_root()
         self.runs = discover_runs(self.root)
 
         self.run_pick = QComboBox()

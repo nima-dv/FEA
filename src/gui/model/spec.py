@@ -62,7 +62,7 @@ class ArtifactReduction(enum.Enum):
     WIDE_DOMAIN = "wide"       # move the boundary out of reach instead of approximating it
 
 
-# Fixed specs for the two treatments. See docs/lessons.md section 6 for why each number.
+# Fixed specs for the two treatments. See presentation/docs/lessons.md section 6 for why each number.
 SPONGE_MM = 8.0        # the dead margin outboard of the aperture at the standard extent
 SPONGE_DB = 40.0       # round-trip attenuation. An OPTIMUM, not a maximum: 60 and 200 dB
                        # both measured WORSE, because a steeper ramp reflects at its own onset.

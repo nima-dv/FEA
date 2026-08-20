@@ -24,6 +24,11 @@
 #                                     worth more than tidiness. Docker creates the empty
 #                                     mountpoint src/backend/results on the host as a side
 #                                     effect; it is gitignored and always empty.
+#   presentation   -> /work/presentation (rw)  the presentation sub-project: the published
+#                                     data, the scripts that build the brief and dossier,
+#                                     and the documents themselves. Kept apart from
+#                                     data/results on purpose, so a routine run can never
+#                                     overwrite a published figure.
 #   data/raw       -> /raw      (ro)  the research team's k-Wave workspaces. READ-ONLY at the
 #                                     mount, not merely by convention.
 #   src/kwave/.../beamformer -> /opt/bf (ro)  their beamformer package, imported in place by
@@ -64,6 +69,11 @@ $mounts = @(
     '-v', "$(Join-Path $repo 'src\backend'):/work",
     '-v', "$(Join-Path $repo 'data\results'):/work/results"
 )
+# The presentation sub-project. Mounted inside /work for the same reason results is: so a
+# command reads `presentation/scripts/...` and simply works.
+$presDir = Join-Path $repo 'presentation'
+if (Test-Path $presDir) { $mounts += @('-v', "${presDir}:/work/presentation") }
+
 $rawDir = Join-Path $repo 'data\raw'
 if (Test-Path $rawDir) { $mounts += @('-v', "${rawDir}:/raw:ro") }
 
@@ -97,7 +107,8 @@ if (-not $imgPath) {
 $envArgs = @(
     '-e', "PYTHONPATH=/work:$imgPath",
     '-e', 'DVFEA_RESULTS=/work/results',
-    '-e', 'DVFEA_RAW=/raw'
+    '-e', 'DVFEA_RAW=/raw',
+    '-e', 'DVFEA_PRESENTATION=/work/presentation'
 )
 $nameArgs = if ($Name) { @('--name', $Name) } else { @() }
 

@@ -60,6 +60,18 @@ def results_root() -> Path:
     return _GUI_ROOT.parents[1] / "data" / "results"      # gui -> src -> repo
 
 
+def presentation_root() -> Path:
+    """Where the PUBLISHED record lives - a different tree from run output since 2026-08-20.
+
+    Keeping them apart is the point: runs land in data/results and may be deleted freely, while
+    everything under presentation/ is evidence and is version-controlled. The gallery reads both.
+    """
+    env = os.environ.get("DVFEA_PRESENTATION")
+    if env:
+        return Path(env) / "data"
+    return _GUI_ROOT.parents[1] / "presentation" / "data"
+
+
 def prefer_unannotated(paths: list[Path]) -> list[Path]:
     """Drop every figure that has a `_nooverlay` twin. See the module docstring."""
     out = []
@@ -257,7 +269,9 @@ def discover_runs(root: Path | None = None) -> list[RunEntry]:
     for key, docs in groups.items():
         order.append((max(d.get("started") or 0.0 for d in docs), key))
     runs = [_entry_from_docs(groups[k], root) for _, k in sorted(order, reverse=True)]
-    return runs + discover_published(root)
+    # The published record is a DIFFERENT tree now; passing `root` would look for
+    # published figures among run output and find none.
+    return runs + discover_published(presentation_root())
 
 
 def compare_pair(entry: RunEntry, root: Path | None = None
@@ -284,7 +298,9 @@ def compare_pair(entry: RunEntry, root: Path | None = None
         return None
     mine = next((p for p in entry.figures if p.name.startswith("compare_")), None)
     sign = "p" if entry.angle >= 0 else "m"
-    base = root / "compare" / f"compare_{sign}{abs(entry.angle):.0f}deg_nooverlay.png"
+    # The baseline side is published data; only the run's own figure is run output.
+    base = (presentation_root() / "compare"
+            / f"compare_{sign}{abs(entry.angle):.0f}deg_nooverlay.png")
     if mine is None or not base.exists() or base == mine:
         return None
     return base, mine, "published baseline", entry.tag or entry.run_id

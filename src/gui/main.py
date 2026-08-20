@@ -1,6 +1,6 @@
 r"""DV-FEA entry point and window shell.
 
-The shell knows the five sections and nothing about what is inside them. Views are built
+The shell knows the sections and nothing about what is inside them. Views are built
 LAZILY, on first selection, inside a try/except ImportError: four people are writing this app
 at the same time, and a missing views/queue.py must cost a placeholder panel, not a dead app.
 That is also why nothing here imports another stream's module at the top of the file.
@@ -26,8 +26,9 @@ TITLE = "DV-FEA  Crack Simulation"
 
 # (rail label, module, preferred class names). The module may not exist yet; see _build_view.
 VIEW_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    # The queue is a section of Simulate, not a rail section: views/simulate.py embeds
+    # views/queue.QueueView and forwards attach_runner to it.
     ("Simulate", "views.simulate", ("SimulateView",)),
-    ("Queue", "views.queue", ("QueueView", "Queue")),
     ("Results", "views.results", ("ResultsView", "Results")),
     ("Export", "views.export", ("ExportView", "Export")),
     # Interactive matplotlib views: the real mesh, a wavefield scrubber and an image probe.
@@ -163,7 +164,9 @@ class MainWindow(QMainWindow):
         runner. Keeping the wire here is what lets views/simulate.py be tested with no Docker
         on the machine, and what stops two views from each building their own queue.
         """
-        attach = getattr(widget, "attach_runner", None)      # views/queue.py's own hook
+        # views/simulate.py's hook, which forwards to the queue it embeds. (It was
+        # views/queue.py's own hook while the queue was still a rail section.)
+        attach = getattr(widget, "attach_runner", None)
         if callable(attach):
             try:
                 attach(self._runner())
@@ -193,8 +196,9 @@ class MainWindow(QMainWindow):
 
     def _on_run(self, cfg, stages) -> None:
         # Run and Add-to-queue submit to the same FIFO - a second queue would mean two
-        # processes fighting over one GPU. The difference is that Run takes you to the queue.
-        self._submit(cfg, stages, "Queue")
+        # processes fighting over one GPU. They used to differ in that Run navigated to the
+        # Queue section; the queue is now on the Simulate page, so there is nowhere to go.
+        self._submit(cfg, stages, None)
 
     def _on_queue(self, cfg, stages) -> None:
         self._submit(cfg, stages, None)
@@ -350,12 +354,18 @@ def demo() -> None:
         app.processEvents()
         assert win.stack.currentWidget() is not None, row
     assert "Simulate" in win._views, "the form is this stream's own view; it must load"
+    # The queue is a section of Simulate now. Nothing may put it back on the rail, and the
+    # runner wiring must still find a home - via Simulate's forwarding attach_runner.
+    labels = [win.rail.item(r).text() for r in range(win.rail.count())]
+    assert "Queue" not in labels, labels
+    assert callable(getattr(win._views["Simulate"], "attach_runner", None)), \
+        "main.py has no way to hand the runner to the queue"
 
     # register_view is the parallel-work hook: it must replace, not append.
     n = win.stack.count()
     probe = QLabel("stand-in")
-    win.register_view("Queue", probe)
-    assert win.stack.count() == n and win._views["Queue"] is probe
+    win.register_view("Results", probe)
+    assert win.stack.count() == n and win._views["Results"] is probe
 
     win.rail.setCurrentRow(0)
     app.processEvents()

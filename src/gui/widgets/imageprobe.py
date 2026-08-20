@@ -84,8 +84,10 @@ class ImageProbe(QWidget):
 
     def __init__(self, root: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        from views.results import results_root
-        self.root = root or results_root()
+        from views.results import presentation_root, results_root
+        # The beamformed image caches are PUBLISHED data and live in presentation/;
+        # data/results holds run output, which is a different tree since the split.
+        self.root = root or presentation_root()
         self.panels: dict[str, np.ndarray] = {}
         self.x = np.empty(0)
         self.z = np.empty(0)
@@ -262,10 +264,10 @@ def demo() -> None:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from types import SimpleNamespace
     from PySide6.QtWidgets import QApplication
-    from views.results import results_root
+    from views.results import presentation_root, results_root
     app = QApplication.instance() or QApplication([])
 
-    root = results_root()
+    root = presentation_root()
     found = image_sets(root)
     assert found, "no images_*.npz under %s" % (root / COMPARE_DIR)
     path = next((p for p in found if p.name == "images_20.npz"), found[0])

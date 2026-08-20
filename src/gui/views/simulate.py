@@ -3,7 +3,13 @@ r"""The parameter form: everything the user can set, what it means, and what it 
 Two columns. Left is the form: one FieldRow per parameter, each carrying its plain-language
 label, its flag, an always-visible one-line hint, a "?" for the fuller explanation, and the
 derived consequence of the value currently in it. Right is the summary: the schematic above,
-the consequences panel below, then the guardrails and the dry-run command.
+the consequences panel below, then the guardrails and the dry-run command - and under all of
+that, behind a draggable splitter, the job queue.
+
+THE QUEUE IS PART OF THIS PAGE (2026-08-20). It used to be its own rail section, which meant
+submitting a run navigated away from the form that described it - so checking a parameter
+against a running job was two clicks each way. Same widget (views/queue.QueueView), embedded.
+This view still owns no runner: main.py calls attach_runner() here and it forwards.
 
 Every user-facing string comes from model/help.py and nowhere else. This module has no copy of
 its own, so the physics claims stay in one reviewable file instead of spreading across widget
@@ -332,6 +338,14 @@ class SimulateView(QWidget):
             self.equation = EquationPanel()
         except Exception:
             self.equation = None
+        # The queue lives on THIS page: setting a run up and watching it run are one screen, so
+        # Run no longer navigates anywhere. Same lazy-and-degrade rule as the equation panel -
+        # views/queue.py is another stream's file and the form must open without it.
+        try:
+            from views.queue import QueueView
+            self.queue = QueueView()
+        except Exception:
+            self.queue = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 10, 10, 10)
@@ -503,6 +517,27 @@ class SimulateView(QWidget):
         return box
 
     def _build_result_column(self) -> QWidget:
+        """The summary column, with the job queue under it.
+
+        A splitter, not a fixed split: a job card with its log expanded needs room that only
+        the user knows they want, and the alternative (a scroll area inside a scroll area)
+        is worse. The queue keeps a floor tall enough for its header plus one card, so
+        dragging it down to a sliver still shows "N queued / N running / N done".
+        """
+        top = self._build_summary_column()
+        if self.queue is None:
+            return top
+        split = QSplitter(Qt.Orientation.Vertical)
+        split.addWidget(top)
+        split.addWidget(self.queue)
+        split.setStretchFactor(0, 3)
+        split.setStretchFactor(1, 2)
+        split.setSizes([460, 240])
+        self.queue.setMinimumHeight(150)
+        split.setCollapsible(1, False)      # a queue you cannot see is a queue you forget
+        return split
+
+    def _build_summary_column(self) -> QWidget:
         col = QWidget()
         lay = QVBoxLayout(col)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -652,6 +687,17 @@ class SimulateView(QWidget):
 
     def stages(self) -> tuple[Stage, ...]:
         return tuple(st for st, cb in self.stage_boxes.items() if cb.isChecked())
+
+    def attach_runner(self, runner: object = None) -> list[str]:
+        """main.py's wiring hook, forwarded to the embedded queue.
+
+        The queue used to be its own rail section and main.py attached the runner to it
+        directly. Now that it lives here, this view is the only thing main.py can see - but
+        the runner still belongs to the shell, and this view still never starts a job.
+        """
+        if self.queue is None:
+            return []
+        return self.queue.attach_runner(runner)
 
     # ---- reactions -----------------------------------------------------------------
 
@@ -824,6 +870,7 @@ def demo() -> None:
     """Self-check: every parameter is on screen, the form round-trips, and a BLOCK kills Run."""
     import os
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QObject
     from PySide6.QtWidgets import QApplication
     app = QApplication.instance() or QApplication([])
 
@@ -945,6 +992,25 @@ def demo() -> None:
     v.run_requested.connect(lambda c, s: got.append((c, s)))
     v.btn_run.click()
     assert got and got[0][0] == v.config(), "run_requested did not carry the config"
+
+    # The queue is on this page now, and attach_runner must reach it. Checked against a stub:
+    # the real Runner would be a second queue fighting for the GPU, and no demo may start one.
+    assert v.queue is not None, "views.queue failed to import - the embedded queue is missing"
+    assert v.queue.isVisibleTo(v), "the queue must be on screen, not merely constructed"
+    assert v.queue.minimumHeight() > 0, "a collapsed-to-nothing queue is a forgotten queue"
+    assert "0 queued" in v.queue._summary.text(), v.queue._summary.text()
+
+    class _StubRunner(QObject):
+        queue_changed = Signal()
+
+        def jobs(self):
+            return []
+
+    stub = _StubRunner()
+    assert v.attach_runner(stub) == ["queue_changed"], "attach_runner did not reach the queue"
+    from views.queue import fake_jobs
+    v.queue.set_jobs(fake_jobs())
+    assert "1 running" in v.queue._summary.text(), v.queue._summary.text()
     print("simulate.demo: ok (%d parameters, %d with a detail expander)"
           % (len(v._rows), sum(1 for n in v._rows if help_for(n).detail)))
 

@@ -18,6 +18,11 @@ WHY THIS EXISTS
   Restoring is deliberately manual. Anything that can automatically overwrite the working
   tree is a new way to destroy it.
 
+WHAT COUNTS AS THE RECORD
+  Everything git tracks under presentation/. That folder holds only evidence - routine run
+  output goes to data/, which is not version-controlled at all - so the structure answers
+  "what is worth keeping" without a list to maintain.
+
 USAGE
   python3 tools/publication_backup.py --backup            # copy + write manifests
   python3 tools/publication_backup.py --verify            # working tree vs the manifest
@@ -42,20 +47,30 @@ from pathlib import Path
 # outside every container mount by design. A backup reachable from inside the container is a
 # backup a container job can destroy.
 REPO = Path(__file__).resolve().parents[3]
-MANIFEST_IN_REPO = REPO / "data" / "PUBLICATION_MANIFEST.json"
+MANIFEST_IN_REPO = REPO / "presentation" / "MANIFEST.json"
 DEFAULT_DEST = REPO.parent / "FEA-publication-backup"
 
-# What counts as the publication record: everything git TRACKS under data/results. That is
-# already the considered answer to "what is worth keeping" - the ignore rules in
-# data/.gitignore were written file type by file type for exactly this question - so deriving
-# the list from git rather than from a glob means the two can never disagree.
-SUBTREE = "data/results"
+# What counts as the publication record: everything git tracks under presentation/.
+#
+# That folder exists to hold evidence and nothing else - routine run output goes to data/,
+# which is not version-controlled at all. So the directory boundary answers "what is worth
+# keeping" and there is no list to maintain. An earlier version of this tool did maintain
+# one, because data/results held both kinds of file and a pattern could not tell them apart.
+SUBTREE = "presentation"
+MANIFEST_IN_REPO_NOTE = "presentation/MANIFEST.json"
 
 
 def tracked_files() -> list[Path]:
+    """Everything git tracks under presentation/.
+
+    Back to git as the source of truth, and correctly this time. An explicit allowlist was
+    needed while data/results mixed publication data with routine run output, so "what is
+    worth keeping" had to be enumerated file by file. The presentation/ folder answers that
+    structurally: nothing routine is written there, so everything tracked there is evidence.
+    """
     out = subprocess.run(["git", "ls-files", "-z", SUBTREE], cwd=REPO,
                          capture_output=True, text=True, check=True).stdout
-    return [REPO / p for p in out.split("\0") if p]
+    return [REPO / q for q in out.split(chr(0)) if q]
 
 
 def sha256(p: Path, chunk: int = 1 << 20) -> str:

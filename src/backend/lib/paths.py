@@ -51,6 +51,14 @@ RESULTS = _resolve("DVFEA_RESULTS", "data", "results")
 #: nothing in this project may write here.
 RAW = _resolve("DVFEA_RAW", "data", "raw")
 
+#: THE PRESENTATION SUB-PROJECT. Its own data, scripts and documents - the evidence for the
+#: R&D challenge, kept apart from routine run output on purpose so that the two can never be
+#: confused and a stray run can never overwrite a published figure.
+PRESENTATION = _resolve("DVFEA_PRESENTATION", "presentation")
+
+#: where the published figures, channel data and reference cases live
+PRES_DATA = PRESENTATION / "data"
+
 if not RESULTS.parent.exists():
     raise RuntimeError(
         f"cannot resolve the results directory: {RESULTS} has no parent on disk.\n"

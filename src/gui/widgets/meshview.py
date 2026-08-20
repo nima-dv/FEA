@@ -1,7 +1,7 @@
 r"""Mesh inspector: the cells of a real .msh, coloured by size or quality, against the wall.
 
 NO meshio ON THE GUI VENV
-The backend has meshio (viz/mesh_zoom.py imports it), but `.venv-gui` does not - checked with
+The backend has meshio (presentation/scripts/mesh_zoom.py imports it), but `.venv-gui` does not - checked with
 the venv interpreter, `import meshio` fails. Rather than quietly adding a dependency to the
 host venv, this module parses the one format that is actually on disk: gmsh ASCII 4.1, which
 is what `mesh/ili_mesh.py` writes. `read_msh` handles nodes, triangles, quads and tagged
@@ -9,7 +9,7 @@ facets and nothing else - see `_MSH_NOTE`. If meshio ever lands in the venv this
 deleted; it is ~60 lines, not an abstraction.
 
 WHY THE FACET OVERLAY IS THE POINT
-Following viz/mesh_zoom.py: the mesh's OWN inner/outer wall facets are drawn on top of the
+Following presentation/scripts/mesh_zoom.py: the mesh's OWN inner/outer wall facets are drawn on top of the
 exact circle, computed independently from the geometry. On a conforming mesh the circle
 disappears under the facets; on the staircase mesh (`*_stair_tri.msh`) it visibly cuts across
 50 um steps. Without both curves present, conformity has to be inferred from the cell pattern,
@@ -43,7 +43,7 @@ from widgets.mplcanvas import (ACCENT, INK_SOFT, RULE, MplCanvas,               
                                Task)
 
 # Geometry in mm. The source of truth is mesh/ili_mesh.py in the backend, mirrored by
-# viz/mesh_zoom.py; restated here because the backend modules import lib.paths and are not
+# presentation/scripts/mesh_zoom.py; restated here because the backend modules import lib.paths and are not
 # importable from the GUI venv. Only used to draw the exact circle the mesh is compared with.
 X_C, Z_C = 38.25, -173.675
 R_ID, R_OD = 193.675, 203.200
@@ -320,7 +320,7 @@ class MeshView(QWidget):
     def _draw_walls(self, ax: Any, m: Mesh) -> None:
         """The mesh's own ID/OD facets, then the exact circle underneath them.
 
-        Same statement as viz/mesh_zoom.py: on a conforming mesh the dashed circle vanishes
+        Same statement as presentation/scripts/mesh_zoom.py: on a conforming mesh the dashed circle vanishes
         under the facets; on a staircase mesh it cuts across the steps.
         """
         for tag, col in ((TAG_ID, ACCENT), (TAG_OD, "#FFA24D")):

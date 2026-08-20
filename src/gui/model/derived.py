@@ -6,7 +6,7 @@ before the run, and if it ever pretends to, a GUI run and a published run can di
 paper while agreeing on disk - which is the one failure mode this project cannot afford.
 So each result carries `is_estimate` and a note naming what the real number depends on.
 
-THE THREE FORMULAS, AND WHERE THEY COME FROM (docs/lessons.md sections 4-5)
+THE THREE FORMULAS, AND WHERE THEY COME FROM (presentation/docs/lessons.md sections 4-5)
   resolution  N = p * lambda / h      lambda = c / f_upper, NOT c / f0
   time step   dt = CFL * h / (c p^2)  minimised over regions, h the SHORTEST EDGE
   cost        one step is a sparse matvec: memory-bandwidth bound, so ms/step ~ unknowns
@@ -115,7 +115,7 @@ def nodes_per_wavelength(config: RunConfig, sc: scen.Scenario) -> Resolution:
 
     Sized at 2*f0 = 8 MHz, not at f0: a 1-cycle burst is ~100% bandwidth, and a mesh that
     resolves only the centre frequency low-passes its own pulse in transit, which costs
-    depth resolution directly (docs/lessons.md, "the bandwidth trap").
+    depth resolution directly (presentation/docs/lessons.md, "the bandwidth trap").
 
     STEEL SHEAR IS THE CRITERION, WHICH SURPRISES PEOPLE. Steel is the fast material, so the
     instinct is that it needs the coarsest cells - but the SHEAR wave is what images the

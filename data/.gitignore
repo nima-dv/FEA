@@ -1,49 +1,15 @@
-# What of our own output is worth keeping in git, and what regenerates.
+# NOTHING under data/ is version-controlled.
 #
-# Figures (.png) ARE tracked - they are the deliverable. Meshes and field dumps are not:
-# they are large and a script reproduces them (the ILI mesh rebuilds in ~10 s).
-results/**/*.msh
-results/**/*.h5
-results/**/*.xdmf
-results/**/*.npz
-results/**/*.bp
-
-# ...except these three. The wide-domain record backs a NULL result and regenerates in
-# 12 min; the snapshot runs exist only to make animations and their channel data is a
-# byproduct nothing reads.
-results/ili_forward/channel_data_*_w165_*.npz
-results/ili_forward/channel_data_snap*.npz
-# ...but channel_data_snap_p20deg.npz was already tracked when that rule was written,
-# and generated data backing the publication is kept. It and the two published pair GIFs
-# below are force-tracked (`git add -f`); the rules above only govern NEW files.
-
-# Extracted k-Wave cases: only ~1 min to re-extract, but re-extraction needs data/raw/,
-# which is itself gitignored bulk. ~24 MB each.
-!results/kwave_cases/*.npz
-
-# Beamformed image caches: tiny, and metric_robustness.py reads them.
-!results/compare/images_*.npz
-
-# NEVER track the wavefield snapshot dumps. 476-966 MB each - over GitHub's HARD 100 MB
-# per-file limit, so a push carrying one is rejected outright. They rebuild from a ~2 min
-# degree-3 GPU solve with --snapshots. Listed after the negations so it wins.
-results/**/wavefield_*.npz
-
-# Animations are regenerable and can be enormous - the first wavefield GIF was 64 MB, which
-# git warns about and no reviewer wants to clone. Render with viz/wavefield_gif.py
-# (--stride / --colors keep them to a few MB) and `git add -f` a small one worth keeping.
-results/viz/*.gif
-
-# Generated artifact pages carry ~10-20 MB of inlined base64 images. Rebuild them with
-# viz/build_artifacts.py rather than tracking them.
-results/artifacts/*.html
-
-# THE RESEARCH TEAM'S RAW RUNS. 423 MB across three runs, read-only for us, and re-obtainable
-# from them. tools/extract_kwave_case.py reduces each to a few-MB .npz under results/.
-raw/
-
-# GUI run records. One JSON per job, written by the app so a run is reproducible and
-# so the gallery can find it. They are a local experiment log, not publication data -
-# three of them got tracked and then swept into PUBLICATION_MANIFEST.json, which the
-# integrity check correctly failed on the moment a smoke test cleaned them up.
-results/gui_runs/
+# This is routine run output: meshes, channel data, snapshot dumps, GUI run records. It is
+# regenerable, there is going to be a lot of it, and none of it is evidence. A single solve
+# writes ~42 MB of channel data and a snapshot run 476-966 MB, which is over GitHub's hard
+# 100 MB per-file limit.
+#
+# The evidence for the R&D challenge lives in presentation/ and is tracked there. That
+# separation is the mechanism - it replaced an allowlist of individual files, because a
+# directory boundary cannot be defeated by a new filename that happens to match a pattern.
+#
+# data/raw/ holds the research team's k-Wave workspaces: 423 MB, read-only for us, and
+# re-obtainable from them.
+*
+!.gitignore

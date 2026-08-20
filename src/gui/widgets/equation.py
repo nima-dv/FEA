@@ -16,7 +16,7 @@ HOW IT WORKS
   with.
 
 WHAT IT IS NOT
-  Not a derivation, and not a substitute for docs/lessons.md. It states the system being
+  Not a derivation, and not a substitute for presentation/docs/lessons.md. It states the system being
   solved, which boundary conditions are live, and the stability limit with the current numbers
   substituted in.
 """

@@ -40,7 +40,7 @@ data. For an inspection tool this matters more than any single dB figure - real 
 conveniently on-axis.
 
 **WHY we win: numerical bandwidth, NOT geometry.** The C4 controlled experiment
-(`repro/c4_staircase.py`) staircased the curved ID at k-Wave's own 50 um and measured only
+(`presentation/scripts/c4_staircase.py`) staircased the curved ID at k-Wave's own 50 um and measured only
 **+0.61 dB** of extra clutter - real in direction, far too small to explain the win. So do not
 say "we win because the mesh conforms". The defendable mechanism is that we resolve the pulse
 BANDWIDTH (see section 5), which was predicted before the -20 deg solve and confirmed. The
@@ -114,7 +114,7 @@ Total ~5 h of compute. Run from this folder.
     --theirs results/kwave_cases/kwave_odnotch4mm_20.npz
 
 # 5. Confirm the claims survive every reasonable analysis choice
-./run.ps1 python3 repro/metric_robustness.py --angle 20
+./run.ps1 python3 presentation/scripts/metric_robustness.py --angle 20
 ```
 
 ### The demonstration figures
@@ -130,7 +130,7 @@ Total ~5 h of compute. Run from this folder.
 # mesh conformity figure (needs the two healthy triangle meshes; no solve required)
 ./run.ps1 python3 mesh/ili_mesh.py --no-notch --no-plot
 ./run.ps1 python3 mesh/ili_mesh.py --no-notch --no-plot --staircase
-./run.ps1 python3 viz/mesh_zoom.py --cracked results/ili_mesh/ili_mesh_s0p8.msh
+./run.ps1 python3 presentation/scripts/mesh_zoom.py --cracked results/ili_mesh/ili_mesh_s0p8.msh
 ```
 
 ---
@@ -186,16 +186,16 @@ fenics/
 | `repro/ili_forward.py` | The forward solve. **Use `--degree 4`.** Asserts the transmit delay span against k-Wave's recorded values, derives dt from the true minimum edge, and guards against divergence. | working |
 | `repro/analyze_forward.py` | Arrival times vs analytic ToF. Requires peak *prominence*, so it reports NOT RESOLVED rather than inventing an echo. | working |
 | `repro/compare_images.py` | The head-to-head table + figure. Panels normalised to their OWN max (source conventions differ). | working |
-| `repro/compare_rf.py` | Raw channel-data diff — B-scans, front-wall onset vs element, band-limited energy ratios. Use this when an image difference needs explaining. | working |
-| `repro/metric_robustness.py` | Sweeps thresholds, ROI widths and guard distances. **Run this before quoting any metric.** | working |
-| `repro/c4_staircase.py` | C4: our solver against ITSELF on a healthy wall, one variable changed - exact ID arc vs 50 um pixel staircase. A defect-free wall must image black, so whatever it images is numerical. | working |
+| `presentation/scripts/compare_rf.py` | Raw channel-data diff — B-scans, front-wall onset vs element, band-limited energy ratios. Use this when an image difference needs explaining. | working |
+| `presentation/scripts/metric_robustness.py` | Sweeps thresholds, ROI widths and guard distances. **Run this before quoting any metric.** | working |
+| `presentation/scripts/c4_staircase.py` | C4: our solver against ITSELF on a healthy wall, one variable changed - exact ID arc vs 50 um pixel staircase. A defect-free wall must image black, so whatever it images is numerical. | working |
 
 ### Visualisation (`viz/`)
 
 | Script | What it does | Status |
 |---|---|---|
 | `viz/wavefield_gif.py` | D1. Animates `div u` in the water (P) and `curl u` in the steel (S) from `--snapshots` output, so mode conversion at the ID is directly visible. Masks triangles that a raw Delaunay over sample points invents - past the OD, across the notch void, and straddling the ID (that last one would blend two different quantities into a fake halo). GIF is palette-quantised through PIL; `--stride`/`--colors` keep it publishable. | working |
-| `viz/mesh_zoom.py` | D4. Four panels from the meshes on disk, with the mesh's own ID facets drawn against the exact circle: conforming wide, conforming vs staircased in the SAME off-axis window, and the notch-tip void. | working |
+| `presentation/scripts/mesh_zoom.py` | D4. Four panels from the meshes on disk, with the mesh's own ID facets drawn against the exact circle: conforming wide, conforming vs staircased in the SAME off-axis window, and the notch-tip void. | working |
 
 ### Validation against exact solutions
 

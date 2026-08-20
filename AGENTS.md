@@ -71,5 +71,5 @@ metrics are identical. Evidence in `results/perf/gpu_gate.txt`. The CPU path sta
 pass `--gpu` to opt in.
 
 Conventions: ASCII only in source. Cache heavy intermediates so re-analysis never re-solves.
-Run `repro/metric_robustness.py` before quoting any metric. Keep markdown light - current
+Run `presentation/scripts/metric_robustness.py` before quoting any metric. Keep markdown light - current
 state only, no changelog, no dead text.

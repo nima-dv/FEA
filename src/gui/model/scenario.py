@@ -83,7 +83,7 @@ class Scenario:
 
         The mesh must resolve THIS, not f0 - a 1-cycle 4 MHz pulse carries real energy to
         6-8 MHz, and a mesh sized for the centre frequency low-passes your own pulse in
-        transit (docs/lessons.md, "the bandwidth trap").
+        transit (presentation/docs/lessons.md, "the bandwidth trap").
         """
         return 2.0 * self.f0
 

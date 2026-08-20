@@ -308,7 +308,7 @@ individually cheap.
 
 **Order beats refinement for timing.** That is why this project is built on spectral elements.
 
-### Why this solver is a good fit for a GPU, and how to tell in advance
+### Why this solver is a good fit for a GPU (summary; section 10.6 derives it)
 
 Worth knowing as a general rule. One explicit step is a single sparse matrix-vector product
 plus a few elementwise vector operations. Count the arithmetic against the bytes moved and the
@@ -621,7 +621,259 @@ more valuable than the survivors, because each one narrows where the real answer
 
 ---
 
-## 10. Glossary
+## 10. The tooling: why a container, and why a GPU
+
+The physics above would be the same in any code. This section is about the two pieces of
+machinery this project actually runs on, because both of them turned out to have real content
+rather than being plumbing - and both produced bugs that looked like physics.
+
+### 10.1 Why the simulation runs in a container at all
+
+The obvious answer is "so it works on Windows", and that is true but shallow. The real reason
+is that **DOLFINx compiles your equation**.
+
+When the solver writes a weak form, that form is not interpreted. UFL parses it, FFCx
+*generates C code* for the element kernels, and a C compiler builds it into a shared library at
+run time. So the stack the simulation needs is not a set of Python packages - it is a C++
+library (DOLFINx), a linear algebra layer (PETSc), an MPI implementation, a form compiler, and
+a working compiler toolchain with headers whose versions all agree. Get one version wrong and
+the failure is not an import error, it is generated code that will not build, three layers down.
+
+That gives the container a job no virtual environment can do: it pins the *compiler* and the
+*generated code*, not just the libraries. Same image means the same C is generated and built
+the same way, which is why a result from six weeks ago reproduces bit-for-bit today. This is
+the concrete mechanism behind "every figure regenerates from committed code".
+
+### 10.2 What an image and a container actually are
+
+An **image** is a stack of read-only filesystem layers plus a little metadata (default command,
+environment, working directory). Each instruction in a Dockerfile that changes the filesystem
+adds one layer, and layers are content-addressed - identical content is stored and downloaded
+once, no matter how many images share it.
+
+A **container** is an image plus one writable layer plus isolation: its own process, mount,
+network and hostname namespaces, so processes inside see a different filesystem root and a
+different process table. It is not a virtual machine. There is no guest kernel; the processes
+run on the host kernel, which is why a container starts in milliseconds and why a GPU can be
+handed to it without emulating a device.
+
+Two consequences visible in this project:
+
+`docker run --rm` is used everywhere, which throws the writable layer away when the process
+exits. Nothing is meant to persist inside a container - all persistence goes through mounts.
+That is a deliberate discipline: if the only durable state is on the host, then "what did that
+run produce?" has one answer.
+
+`Dockerfile.gpu` is `FROM dvfenics:bf` plus a single `pip install`. Because layers are shared,
+the GPU image adds one layer over the CPU image rather than duplicating the FEM stack, and
+rebuilding it does not rebuild DOLFINx. The two images differ by about 300 MB of CUDA wheels
+and nothing else - which is also the argument that the GPU path cannot have changed the physics.
+
+### 10.3 Mounts are the only persistence, and `:ro` is real
+
+A **bind mount** grafts a host directory into the container's mount namespace. It is not a
+copy and there is no synchronisation step: it is the same filesystem, reached by two paths, so a
+write inside the container is the same write outside it.
+
+This project mounts five things:
+
+| host | container | mode | why |
+|---|---|---|---|
+| `src/backend` | `/work` | rw | the software, and the working directory |
+| `data/results` | `/work/results` | rw | routine run output |
+| `presentation` | `/work/presentation` | rw | the published record and the scripts that build it |
+| `data/raw` | `/raw` | **ro** | the research team's k-Wave workspaces |
+| `src/kwave/.../beamformer` | `/opt/bf` | **ro** | their beamformer, imported in place |
+
+The `:ro` flags are the important part. "We agreed not to write there" is a promise; a
+read-only bind mount is enforced by the kernel, and a script with a bug cannot get past it. That
+is why the two things this project must not damage - their raw data and their code - are
+protected by a mount option rather than by care.
+
+Two subtleties worth knowing because both look like magic until explained:
+
+**Nested mounts.** `data/results` is mounted at `/work/results`, which is *inside* the `/work`
+mount. Docker creates the mountpoint before mounting, and since `/work` is itself a host
+directory, that empty `results/` directory appears on the host inside `src/backend`. It is
+always empty and it is gitignored. The reason for the nesting is worth the oddity: on the host,
+results live outside the source tree, which is the whole point of the layout; inside the
+container they are mounted back where they used to be, so roughly fifty documented commands
+still read `--mesh results/ili_mesh/...` and still work.
+
+**Mounting the beamformer instead of installing it.** `pip install -e` writes an `.egg-info`
+directory into the package it installs. That package is in the research team's read-only
+submodule, so it is imported in place from `/opt/bf` instead. A read-only mount makes the
+mistake impossible rather than merely discouraged.
+
+### 10.4 The environment trap that broke every solve
+
+Container environment variables passed with `-e` **replace**, they never append. This produced
+one of the nastiest bugs in the project.
+
+The DOLFINx base image sets its own `PYTHONPATH`:
+
+```
+PYTHONPATH=/usr/local/dolfinx-real/lib/python3.12/dist-packages:/usr/local/lib
+```
+
+which is where `dolfinx` lives, and also where `gmsh` lives - `gmsh` is `/usr/local/lib/gmsh.py`,
+a bare module, not a wheel in `site-packages`. Adding `-e PYTHONPATH=/work` so that scripts
+could import a shared module wiped both entries.
+
+The failure mode is what makes it a lesson. Anything needing only numpy kept working perfectly,
+so imaging, page builds and the analysis scripts all passed - while every mesh build and every
+solve was broken. A test suite that exercised the cheap paths would have reported green.
+
+The fix is to read the image's own value and prepend to it:
+
+```powershell
+docker image inspect $image --format '{{range .Config.Env}}{{println .}}{{end}}'
+```
+
+**The general lesson: when you set an environment variable on a container, you are replacing
+whatever the image author put there. Find out what that was first.**
+
+### 10.5 Why only the time loop went to the GPU
+
+Look at where the time actually goes in a run:
+
+1. build the mesh — seconds, gmsh, CPU
+2. assemble $\mathbf{K}$, the lumped mass, the source and receiver operators — a few seconds,
+   DOLFINx and PETSc, CPU, **once**
+3. step the solution forward 163,680 times — minutes to hours
+
+Only step 3 matters, and step 3 touches neither DOLFINx nor PETSc. After assembly the loop is
+`scipy.sparse` and nothing else. So porting it meant swapping one array library for another -
+about two lines - rather than rebuilding a finite-element stack for the GPU.
+
+That is fortunate, because the official route is blocked. FEniCSx GPU assembly needs a
+CUDA-enabled PETSc, and the standard container and Conda distributions ship PETSc **without**
+CUDA. Verified on our own image rather than taken from documentation: `PETSc.Vec().setType('cuda')`
+fails with error code 86. Rebuilding PETSc and DOLFINx with CUDA through Spack would replace the
+entire container and everything that depends on it reproducing.
+
+### 10.6 Arithmetic intensity - the one number that predicts everything
+
+This is the piece of theory worth carrying to any other numerical code.
+
+Every kernel does some arithmetic and moves some bytes. Its **arithmetic intensity** is the
+ratio:
+
+$$ I = \frac{\text{floating-point operations}}{\text{bytes moved from memory}} $$
+
+A machine has two ceilings: peak arithmetic rate, and peak memory bandwidth. The best you can
+do is
+
+$$ T = \max\!\left(\frac{\text{flops}}{F_{peak}},\ \frac{\text{bytes}}{B_{peak}}\right) $$
+
+which is the *roofline* model. Whichever term wins tells you what the kernel is limited by, and
+therefore what would actually make it faster.
+
+Now count for our time step. The work is one sparse matrix-vector product plus a few elementwise
+vector operations. In CSR format, each nonzero of $\mathbf{K}$ costs:
+
+- **arithmetic:** one multiply and one add — 2 flops
+- **memory:** the value, 8 bytes in double precision, plus its column index, 4 bytes — 12 bytes
+
+So $I \approx 2/12 \approx 0.17$ flop per byte. For comparison, a dense matrix multiply has an
+intensity in the tens or hundreds. Ours is about as low as it gets.
+
+Multiply through: 105 million nonzeros at 12 bytes plus the vector traffic is about
+**1.341 GB moved per step**. On a CPU achieving ~23 GB/s that predicts 58 ms per step, and the
+measured rate was 57.8 ms. The model is not approximately right; it is right.
+
+Everything else follows from that single number:
+
+- **More CPU cores barely help.** Cores add arithmetic, and arithmetic is not the constraint.
+  Measured: 1.7× from multi-threading.
+- **A GPU helps enormously**, because what it really offers over a CPU is bandwidth — roughly
+  534 GB/s achieved against 23. The predicted ratio is ~23×; the measured production speed-up is
+  ~19×, and the gap is per-step kernel launch overhead, not arithmetic.
+- **Double precision is nearly free**, even though this consumer card runs fp64 arithmetic at a
+  small fraction of fp32. We are not using the arithmetic units. Had the kernel been
+  compute-bound, fp64 would have been ruinous.
+- **The route to 3-D is matrix-free.** Storing this operator in 3-D at this element order needs
+  far more memory than a consumer card holds. A matrix-free solver stores no operator at all and
+  recomputes element contributions instead — trading bandwidth for arithmetic, which is a bad
+  trade on a CPU and a good one on a GPU. That is why matrix-free and 3-D are one project.
+
+**How to tell in advance whether a GPU will help: count flops per byte. If the number is small,
+you are buying bandwidth, and the speed-up you get will be the bandwidth ratio.**
+
+### 10.7 How the port is written, and why it is two lines
+
+The loop body must not exist twice. If there is a CPU version and a GPU version, they will drift,
+and the drift will be discovered in a result. So the array library is aliased once:
+
+```python
+xp = np
+if args.gpu:
+    import cupy as xp
+    import cupyx.scipy.sparse as xsp
+    Ks = xsp.csr_matrix(Ks); S = xsp.csr_matrix(S); W = xsp.csr_matrix(W)
+```
+
+and the loop is written once, in terms of `xp`. Both paths execute identical source.
+
+What then needs care is not arithmetic but **transfers**. Moving data between host and device is
+slow relative to everything else, so each one is deliberate: the 256-value source waveform is
+pushed to the device once; snapshots are pulled back only on the frames actually saved; the
+receiver record is transferred once at the end.
+
+The subtle one is **synchronisation**. GPU kernel launches are asynchronous - the call returns
+before the work is done, which is what lets thousands of tiny steps stay efficient. But any
+operation that needs a value on the host, such as `float(abs(u).max())` for a divergence check,
+must wait for the queue to drain. Doing that every step would serialise the whole loop and give
+back most of the speed-up. So the guard runs every 500 steps, which is often enough to catch a
+blow-up early and rare enough to cost nothing.
+
+### 10.8 A ported solver does not give the same answer, and that is fine
+
+cuSPARSE sums a row's contributions in a different order than scipy does. Floating-point
+addition is not associative, so the results differ in the last bits from the very first step, and
+then the difference is carried forward by the recurrence. **A GPU port is never bit-identical and
+never will be.**
+
+The tempting check is to compare the two vectors, see a small number and declare success. That is
+the wrong check, because a solver can agree to one part in a million in amplitude and still run
+systematically *late* - and in this measurement, late is a depth error.
+
+So the acceptance gate scores the quantity the simulation exists to produce: **arrival time**,
+measured by sub-sample cross-correlation rather than a threshold crossing. A first-break pick
+moves in whole samples as soon as noise nudges it past the threshold, which would hide exactly
+the sub-sample drift being looked for. Thresholds were written down before the first run. Two
+tests passed - a backend A/B at identical settings, and a full-length run against the stored CPU
+record - at 1.7e-12 samples of drift against a 0.01 sample threshold, with a mean drift of 2e-14
+showing no systematic lead or lag.
+
+**The general lesson: validate a port on the quantity you measure, not on a norm.**
+
+### 10.9 The practical traps, recorded so they are not rediscovered
+
+**`cupy-cuda12x[ctk]`, not plain `cupy-cuda12x`.** The `[ctk]` extra pulls the CUDA toolkit
+*headers* as pip packages. CuPy JIT-compiles its elementwise kernels with NVRTC at run time, and
+the leapfrog update is elementwise, so without headers every vector operation fails with
+"Failed to find CUDA headers". Library calls such as a cuSPARSE matrix-vector product work
+*without* them - which means the failure appears on the second line of the loop, not the first,
+and looks like something more interesting than a missing header.
+
+**Compute capability has to match the wheel.** This machine is an RTX 5070 at compute capability
+12.0, and `cupy-cuda12x` only ships kernels for it from 13.4 onward. An older wheel installs
+happily and then has nothing it can run.
+
+**No CUDA toolkit in the image.** The wheels bring the runtime libraries they need
+(`nvidia-cublas-cu12`, `nvidia-cusparse-cu12`, ...) as ordinary pip packages, and the *driver*
+is injected by the NVIDIA container runtime at run time when `--gpus all` is passed. That is why
+the GPU image is a thin layer and not a CUDA base image.
+
+**Measure on the real workload.** The speed-up was quoted three times before it settled: 23×
+from a synthetic probe, 12.6× from a short run, ~19× in production. The probe excluded per-step
+source injection and receiver extraction as "negligible" - negligible in arithmetic, but each
+costs a kernel launch. And a 3 µs run reads a worse per-step time than a 60 µs one because the
+source fires for the whole short record, while over a full record two thirds of the steps have
+no source at all. **A microbenchmark measures the microbenchmark.**
+
+## 11. Glossary
 
 | term | meaning |
 |---|---|
