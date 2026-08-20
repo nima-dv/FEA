@@ -108,7 +108,10 @@ class RunConfig:
         sign = "p" if self.angle >= 0 else "m"
         bits = [f"deg{self.degree}", f"s{self.scale:.2f}".replace(".", "p").rstrip("0")]
         if self.notch is not Notch.PRESENT:
-            bits.append(self.notch.value)
+            # "healthy", not "absent": the record on disk is channel_data_..._healthy_p20deg,
+            # and a GUI healthy run should sort next to it rather than under another word for
+            # the same thing. mesh_stem() already says healthy.
+            bits.append("healthy" if self.notch is Notch.ABSENT else self.notch.value)
         if self.staircase_id:
             bits.append("stair")
         if self.artifact_reduction is ArtifactReduction.SPONGE:
@@ -231,9 +234,14 @@ def plan(c: RunConfig, kwave_case: str | None = None,
                            outputs=[f"ili_mesh/{stem}{e}" for e in (".msh", ".xdmf", ".h5")],
                            label="mesh"))
     if Stage.FORWARD in stages:
+        fwd_out = [f"ili_forward/channel_data_{c.tag()}.npz"]
+        if c.snapshots:
+            # The snapshot dump is 700-970 MB and is the FIGURES stage's own input. Omitting
+            # it meant no manifest ever recorded the largest file the run produced, and the
+            # animation stage pointed at something nothing had declared.
+            fwd_out.append(f"ili_forward/wavefield_{c.tag()}.npz")
         out.append(JobSpec(Stage.FORWARD, c, _forward_argv(c), gpu=gpu,
-                           outputs=[f"ili_forward/channel_data_{c.tag()}.npz"],
-                           label=f"solve {c.angle:+.0f} deg"))
+                           outputs=fwd_out, label=f"solve {c.angle:+.0f} deg"))
     if Stage.IMAGE in stages:
         sign = "p" if c.angle >= 0 else "m"
         out.append(JobSpec(
@@ -282,6 +290,10 @@ def demo() -> None:
     assert not plan(c, stages=(Stage.FIGURES,)), "no snapshots -> no animation stage"
     mesh_job = plan(c, stages=(Stage.MESH,))[0]
     assert len(mesh_job.outputs) == 3, mesh_job.outputs
+    snap_fwd = plan(replace(c, snapshots=240), stages=(Stage.FORWARD,))[0]
+    assert any("wavefield_" in o for o in snap_fwd.outputs), snap_fwd.outputs
+    assert len(plan(c, stages=(Stage.FORWARD,))[0].outputs) == 1
+    assert "healthy" in replace(c, notch=Notch.ABSENT).tag()
 
     w = replace(c, artifact_reduction=ArtifactReduction.WIDE_DOMAIN)
     assert "--x-min" in _mesh_argv(w) and w.mesh_name() == "ili_mesh_s0p8_w165.msh"

@@ -155,22 +155,71 @@ class MainWindow(QMainWindow):
     def _wire(self, widget: QWidget) -> None:
         """Connect a freshly built view to the runner, if both ends exist.
 
-        The form emits a RunConfig; the shell decides who executes it. Keeping that wire here
-        is what lets views/simulate.py be tested with no Docker on the machine.
+        The form emits a RunConfig; the shell turns it into a plan and hands that to the
+        runner. Keeping the wire here is what lets views/simulate.py be tested with no Docker
+        on the machine, and what stops two views from each building their own queue.
         """
-        for sig_name, method in (("run_requested", "submit"), ("queue_requested", "enqueue")):
-            sig = getattr(widget, sig_name, None)
-            if sig is None:
-                continue
-            runner = self._runner()
-            fn = getattr(runner, method, None) if runner is not None else None
-            if fn is not None:
-                sig.connect(fn)
-            else:
-                sig.connect(lambda cfg, stages, m=method:
-                            self.statusBar().showMessage(
-                                "core.runner.%s not available - %s (%d stages) not submitted"
-                                % (m, cfg.tag(), len(stages)), 6000))
+        attach = getattr(widget, "attach_runner", None)      # views/queue.py's own hook
+        if callable(attach):
+            try:
+                attach(self._runner())
+            except Exception as exc:
+                self.statusBar().showMessage("attach_runner failed: %s" % exc, 6000)
+        for name, slot in (("run_requested", self._on_run),
+                           ("queue_requested", self._on_queue),
+                           ("rerun_requested", self._on_rerun)):
+            sig = getattr(widget, name, None)
+            if sig is not None and hasattr(sig, "connect"):
+                sig.connect(slot)
+
+    def _submit(self, cfg, stages, then_show: str | None) -> None:
+        """RunConfig + stages -> JobSpecs -> the one Runner. Nothing else may start a job."""
+        from model.spec import plan
+        try:
+            from views.simulate import kwave_case
+        except ImportError:
+            def kwave_case(_c):
+                return None
+        specs = plan(cfg, kwave_case(cfg), tuple(stages))
+        runner = self._runner()
+        if runner is None:
+            self.statusBar().showMessage(
+                "core.runner not available - %s (%d jobs) not submitted"
+                % (cfg.tag(), len(specs)), 6000)
+            return
+        ids = runner.submit_plan(specs)
+        self.statusBar().showMessage("queued %d jobs for %s" % (len(ids), cfg.tag()), 6000)
+        if then_show:
+            self.show_section(then_show)
+
+    def _on_run(self, cfg, stages) -> None:
+        # Run and Add-to-queue submit to the same FIFO - a second queue would mean two
+        # processes fighting over one GPU. The difference is that Run takes you to the queue.
+        self._submit(cfg, stages, "Queue")
+
+    def _on_queue(self, cfg, stages) -> None:
+        self._submit(cfg, stages, None)
+
+    def _on_rerun(self, config) -> None:
+        """Results asked to re-run something: load it into the form rather than launching it,
+        so a re-run is still reviewed before it costs GPU minutes."""
+        form = self._views.get("Simulate")
+        setter = getattr(form, "set_config", None)
+        if config is None or setter is None:
+            self.statusBar().showMessage("that run recorded no config to re-use", 6000)
+            return
+        try:
+            setter(config)
+        except Exception as exc:
+            self.statusBar().showMessage("cannot load that config: %s" % exc, 6000)
+            return
+        self.show_section("Simulate")
+
+    def show_section(self, name: str) -> None:
+        for row in range(self.rail.count()):
+            if self.rail.item(row).text() == name:
+                self.rail.setCurrentRow(row)
+                return
 
     def _runner(self):
         """The single shared runner instance, or None while core/runner.py is unwritten."""
@@ -212,31 +261,49 @@ class MainWindow(QMainWindow):
             bar.addPermanentWidget(val)
             self._status[key] = val
         self._refresh_status()
-        # 5 s: the daemon, the disk and the job count all move while the app is open, and a
-        # probe is a couple of cheap subprocess calls.
+        # 15 s: the daemon, the disk and the job count all move while the app is open, but
+        # probe() shells out to docker and nvidia-smi, so this is not free.
         self._status_timer = QTimer(self)
         self._status_timer.timeout.connect(self._refresh_status)
-        self._status_timer.start(5000)
+        self._status_timer.start(15000)
 
     def _refresh_status(self) -> None:
-        probe: dict = {}
+        """Fill the bar from core.docker.probe(), degrading to "unknown" rather than crashing.
+
+        Each field carries its own severity because they are not equally bad: no GPU is a
+        slower run (2.4 h against 7.7 min), no daemon is no run at all.
+        """
+        cells: dict[str, tuple[str, str]] = {}
+        note = ""
         try:
             from core import docker as docker_mod
-            fn = getattr(docker_mod, "probe", None)
-            if callable(fn):
-                probe = dict(fn() or {})
+            pr = docker_mod.probe()
         except ImportError:
-            probe = {}
+            pr = None
         except Exception as exc:
-            probe = {"daemon": "probe failed: %s" % exc}
+            pr, note = None, "probe failed: %s" % exc
+        if pr is not None:
+            note = getattr(pr, "note", "")
+            imgs = [i for i in pr.images if "dvfenics" in i]
+            cells["daemon"] = ("up", "ok") if pr.daemon else ("down", "fail")
+            cells["gpu"] = ("yes", "ok") if pr.gpu else ("no", "warn")
+            cells["images"] = ((", ".join(imgs), "ok") if imgs
+                               else ("no dvfenics image", "fail"))
+            # 20 GB: one snapshot run is ~1 GB, and a full sweep should not fill the disk.
+            cells["disk_free"] = ("%.0f GB" % pr.free_gb,
+                                  "ok" if pr.free_gb > 20 else "warn")
+        runner = self._runner()
+        if runner is not None:
+            try:
+                n = len(runner.running())
+                cells["running"] = (str(n), "ok" if n else "idle")
+            except Exception:
+                pass
         for key, _caption in STATUS_FIELDS:
-            v = probe.get(key)
+            text, state = cells.get(key, ("unknown", "idle"))
             lbl = self._status[key]
-            lbl.setText("unknown" if v is None else str(v))
-            state = "idle"
-            if v is not None:
-                bad = str(v).lower() in ("false", "down", "no", "none", "0 b", "unavailable")
-                state = "fail" if bad else "ok"
+            lbl.setText(text)
+            lbl.setToolTip(note)
             lbl.setProperty("state", state)
             lbl.style().unpolish(lbl)
             lbl.style().polish(lbl)
@@ -293,6 +360,26 @@ def demo() -> None:
 
     win.rail.setCurrentRow(0)
     app.processEvents()
+    # The submit path, against a stub runner: a demo must never start a real container.
+    class _Stub:
+        def __init__(self):
+            self.seen = []
+
+        def submit_plan(self, specs, allow_overwrite=False):
+            self.seen.append(list(specs))
+            return ["stub"] * len(specs)
+
+        def running(self):
+            return []
+
+        def jobs(self):
+            return []
+
+    stub = _Stub()
+    win._runner_obj = stub
+    form = win._views["Simulate"]
+    win._on_queue(form.config(), form.stages())
+    assert stub.seen and len(stub.seen[0]) >= 3, stub.seen
     assert len(win._status) == len(STATUS_FIELDS)
     assert all(lbl.text() for lbl in win._status.values()), "status fields must never be blank"
     print("main.demo: ok, %d sections" % win.rail.count())

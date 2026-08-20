@@ -58,6 +58,45 @@ _ARTIFACT_CHOICES: tuple[tuple[ArtifactReduction, str, str], ...] = (
 
 CUSTOM = "(custom)"
 
+REPO = Path(__file__).resolve().parents[3]
+# /raw is the read-only mount of data/raw (docker/run.ps1), so what the container sees is not
+# the host path. Extracted cases are written by tools/extract_kwave_case.py.
+KWAVE_DIR = REPO / "data" / "raw" / "kwave_cases"
+
+
+def kwave_case(cfg: RunConfig) -> str | None:
+    """Container path of the extracted k-Wave case for this angle, or None if absent.
+
+    None is not a detail: guards BLOCKS a run that asks for a comparison with nothing to
+    compare against, and plan() silently drops --theirs, which would otherwise produce a
+    one-sided figure that looks like a finished comparison.
+    """
+    for name in ("kwave_odnotch4mm_%.0f.npz" % cfg.angle,
+                 "kwave_odnotch4mm_%.0f.npz" % abs(cfg.angle)):
+        if (KWAVE_DIR / name).is_file():
+            return "/raw/kwave_cases/" + name
+    return None
+
+
+def _scenario_rows(sc) -> tuple[tuple[str, str], ...]:
+    """The read-only facts, formatted. `source` is on screen so a fallback is never mistaken
+    for the container's own answer."""
+    return (
+        ("pipe", "ID r %.3f / OD r %.3f mm, wall %.3f mm" % (sc.r_id, sc.r_od, sc.wall)),
+        ("standoff", "%.1f mm water on the beam axis" % sc.standoff),
+        ("array", "%d el @ %.2f mm = %.1f mm aperture at z = 0"
+                  % (sc.n_elem, sc.pitch, sc.aperture)),
+        ("pulse", "%d-cycle toneburst, f0 %.1f MHz (resolve %.1f MHz)"
+                  % (sc.n_cycle, sc.f0 / 1e6, sc.f_upper / 1e6)),
+        ("steel", "c_P %.0f, c_S %.0f m/s, rho %.0f kg/m3" % (sc.c_p, sc.c_s, sc.rho_s)),
+        ("water", "c %.0f m/s, rho %.0f kg/m3" % (sc.c_f, sc.rho_f)),
+        ("notch", "%.1f x %.1f mm slot at x = %.2f mm, from the OD inward"
+                  % (sc.notch_depth, sc.notch_width, sc.notch_x)),
+        ("domain", "%+.1f .. %+.1f mm, limits %+.2f .. %+.2f"
+                   % (sc.x_min, sc.x_max, sc.x_limit_lo, sc.x_limit_hi)),
+        ("source", sc.source),
+    )
+
 
 def _optional(mod: str):
     """Import a sibling module that another workstream owns, or None. The four streams land in
@@ -68,12 +107,14 @@ def _optional(mod: str):
         return None
 
 
-def _first_callable(mod, *names):
-    for n in names:
-        fn = getattr(mod, n, None)
-        if callable(fn):
-            return fn
-    return None
+def _free_bytes() -> int | None:
+    """Free space where results land. shutil, not the docker probe: the guard needs a number
+    on every keystroke and a subprocess per keystroke is not that."""
+    import shutil
+    try:
+        return shutil.disk_usage(REPO / "data" / "results").free
+    except OSError:
+        return None
 
 
 class _Group(QGroupBox):
@@ -242,8 +283,12 @@ class SimulateView(QWidget):
         self.snapshots.setSingleStep(60)
         self.snapshots.setSpecialValueText("off")
         self.snapshots.setToolTip("240 snapshots writes 700-970 MB per run")
+        # Exposed because guards BLOCKS on "comparison requested, no case on disk", and a
+        # blocked Run button needs a way out that is not editing source.
+        self.compare = QCheckBox("compare against the k-Wave case")
         g.row("device", row, self._dot("device"))
         g.row("snapshots", self.snapshots, self._dot("snapshots"))
+        g.row("comparison", self.compare, self._dot("compare_kwave"))
         lay.addWidget(g)
 
         # --- Scenario: read-only. These are backend constants, not parameters.
@@ -259,7 +304,7 @@ class SimulateView(QWidget):
             w.valueChanged.connect(self._on_change)
         for w in (self.chain, self.notch):
             w.currentIndexChanged.connect(self._on_change)
-        for w in (self.quad, self.staircase):
+        for w in (self.quad, self.staircase, self.compare):
             w.toggled.connect(self._on_change)
 
         scroll = QScrollArea()
@@ -323,20 +368,20 @@ class SimulateView(QWidget):
         return row
 
     def _load_scenario_facts(self) -> None:
-        """Fill the read-only group, and hand the same facts to the schematic."""
+        """Fill the read-only group, and hand the same facts to the schematic.
+
+        scenario.load() reads a cache and never touches Docker, so this is safe during window
+        construction; refreshing from the container is an explicit action, not a startup cost.
+        """
         scenario = _optional("model.scenario")
         rows = SCENARIO_FALLBACK
         if scenario is not None:
-            fn = _first_callable(scenario, "facts", "scenario", "load", "read")
-            if fn is not None:
-                try:
-                    facts = fn()
-                    self.cross.set_facts(facts)
-                    described = _first_callable(scenario, "describe", "summary")
-                    if described is not None:
-                        rows = tuple(described())
-                except Exception as exc:          # a scenario dump that fails is not fatal
-                    rows = SCENARIO_FALLBACK + (("error", "%s" % exc),)
+            try:
+                sc = scenario.load()
+                self.cross.set_facts(sc)
+                rows = _scenario_rows(sc)
+            except Exception as exc:              # a broken cache is not worth a dead window
+                rows = SCENARIO_FALLBACK + (("error", "%s" % exc),)
         for name, text in rows:
             val = QLabel(str(text))
             val.setProperty("role", "caption")
@@ -369,6 +414,7 @@ class SimulateView(QWidget):
             artifact_reduction=art,
             device=dev,
             snapshots=self.snapshots.value(),
+            compare_kwave=self.compare.isChecked(),
         )
 
     def set_config(self, cfg: RunConfig) -> None:
@@ -387,6 +433,7 @@ class SimulateView(QWidget):
                 [c[0] for c in _ARTIFACT_CHOICES].index(cfg.artifact_reduction)).setChecked(True)
             self.device_group.button(0 if cfg.device is Device.GPU else 1).setChecked(True)
             self.snapshots.setValue(cfg.snapshots)
+            self.compare.setChecked(cfg.compare_kwave)
         finally:
             self._loading = False
         self._on_change()
@@ -437,16 +484,21 @@ class SimulateView(QWidget):
         """Run is disabled by a BLOCK, and the reason is on screen next to it - never a
         silently dead button."""
         guards = _optional("model.guards")
-        fn = _first_callable(guards, "check", "evaluate", "check_config") if guards else None
+        scenario = _optional("model.scenario")
         blocks: list[str] = []
         warns: list[str] = []
-        if fn is not None:
+        if guards is not None and scenario is not None:
             try:
-                for item in fn(cfg) or ():
-                    level = str(getattr(item, "level", item[0] if isinstance(item, tuple)
-                                        else "warn"))
-                    msg = str(getattr(item, "message", item[-1] if isinstance(item, tuple)
-                                      else item))
+                # `tracked` is left empty on purpose: resolving it means a git call per output
+                # path on every keystroke, and the runner does that check hard before it starts
+                # a container. This panel is the early warning, not the last line of defence.
+                kw = {"free_bytes": _free_bytes(), "kwave_case": kwave_case(cfg)}
+                if "checked_kwave" in getattr(guards.Context, "__dataclass_fields__", {}):
+                    kw["checked_kwave"] = True    # this form did look on disk; see kwave_case
+                ctx = guards.Context(**kw)
+                for f in guards.check(cfg, scenario.load(), ctx) or ():
+                    level = str(getattr(f, "severity", getattr(f, "level", "warn")))
+                    msg = str(getattr(f, "message", f))
                     (blocks if "BLOCK" in level.upper() else warns).append(msg)
             except Exception as exc:
                 warns.append("model.guards failed: %s" % exc)
@@ -475,20 +527,30 @@ class SimulateView(QWidget):
         exists, show the in-container argv, which is the half this view is responsible for.
         """
         cfg = self.config()
-        jobs = plan(cfg, kwave_case=None, stages=self.stages())
+        case = kwave_case(cfg)
+        jobs = plan(cfg, kwave_case=case, stages=self.stages())
         docker = _optional("core.docker")
-        fn = _first_callable(docker, "command_for", "docker_argv", "argv_for") if docker else None
-        lines = ["# %s   tag %s" % (cfg.tag(), cfg.mesh_name())]
+        contract = None
+        if docker is not None:
+            try:
+                contract = docker.container_contract()
+            except Exception as exc:
+                # No Docker on this machine is a normal state for a dry run: say so and still
+                # print the half of the command this view is responsible for.
+                contract = None
+                docker_note = "# container contract unavailable: %s" % exc
+        lines = ["# tag %s   mesh %s" % (cfg.tag(), cfg.mesh_name()),
+                 "# k-Wave case: %s" % (case or "none on disk - no --theirs")]
+        if docker is not None and contract is None:
+            lines.append(docker_note)
         for job in jobs:
-            if fn is not None:
-                try:
-                    argv = fn(job)
-                    lines.append(" ".join(argv) if isinstance(argv, (list, tuple)) else str(argv))
-                    continue
-                except Exception as exc:
-                    lines.append("# core.docker failed: %s" % exc)
-            lines.append("# %-7s (in-container argv; core.docker not available)" % job.stage.value)
-            lines.append("  " + " ".join(job.argv))
+            lines.append("# %s" % job.label)
+            if contract is not None:
+                argv = docker.build_argv(job, contract, "gui_dryrun_" + job.stage.value)
+                lines.append("  " + " ".join(argv))
+            else:
+                lines.append("  # in-container argv only")
+                lines.append("  " + " ".join(job.argv))
         return "\n".join(lines)
 
 
@@ -530,11 +592,21 @@ def demo() -> None:
     v.stage_boxes[Stage.MESH].setChecked(False)
     assert Stage.MESH not in v.stages() and "ili_mesh.py" not in v.dry_run_text()
 
-    # No guards module yet: Run must be live, not disabled by a rule nobody wrote.
-    assert v.btn_run.isEnabled()
+    # A BLOCK must disable Run AND put its reason where the user can read it - never a
+    # button that is dead for reasons the app kept to itself.
+    blocked = v.guard_label.text().startswith("BLOCK")
+    assert v.btn_run.isEnabled() is not blocked, (blocked, v.guard_label.text())
+    if blocked:
+        assert v.btn_run.toolTip() == v.guard_label.text()
+        # The one block the form can clear on its own: nothing to compare against.
+        if "k-Wave case" in v.guard_label.text():
+            v.compare.setChecked(False)
+            assert v.btn_run.isEnabled(), v.guard_label.text()
+            v.compare.setChecked(True)
 
     got = []
     v.run_requested.connect(lambda c, s: got.append((c, s)))
+    v.btn_run.setEnabled(True)          # the signal, not the guard, is what is under test here
     v.btn_run.click()
     assert got and got[0][0] == v.config(), "run_requested did not carry the config"
     print("simulate.demo: ok")

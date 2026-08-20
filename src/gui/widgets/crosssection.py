@@ -97,7 +97,11 @@ class CrossSection(QWidget):
         """Accepts a dict or anything with matching attributes, so model/scenario.py (W2) can
         hand over its own facts object without this widget knowing its type."""
         if not isinstance(facts, dict):
-            facts = {k: getattr(facts, k) for k in DEFAULT_FACTS if hasattr(facts, k)}
+            obj = facts
+            facts = {k: getattr(obj, k) for k in DEFAULT_FACTS if hasattr(obj, k)}
+            # model.scenario states the aperture WIDTH; this widget needs its far edge.
+            if hasattr(obj, "aperture"):
+                facts["array_x1"] = facts.get("array_x0", 0.0) + obj.aperture
         self._facts.update({k: v for k, v in facts.items() if k in DEFAULT_FACTS})
         self.update()
 

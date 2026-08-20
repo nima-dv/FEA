@@ -102,7 +102,10 @@ capped by geometry: past x = −47.46 mm the pipe arc rises above the array plan
 
 **Block** — domain extent outside `[-47.46, +123.96]` mm; projected disk above free space;
 target output path is git-tracked; comparison requested with no k-Wave case on disk.
-**Warn** — nodes per wavelength below ~3.5 (name the `--scale` that fixes it); snapshots on
+**Warn** — nodes per wavelength below ~3.3 (name the `--scale` that fixes it). The threshold
+sits just under the published baseline's own 3.35 on purpose: a guardrail that flags every
+published figure is one users learn to click through. Report whichever region actually binds —
+it is the water, by 3%, not the steel; see the dossier's meshing section. Also warn on: snapshots on
 (700–970 MB per run); CPU selected for a full-length solve (2.4 h against 7.7 min).
 
 ## Progress parsing (`core/logparse.py`)

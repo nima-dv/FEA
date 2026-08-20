@@ -7,16 +7,7 @@ the GUI become a fourth copy that can drift out of step. Lengths in mm, everythi
 
     docker/run.ps1 python3 tools/scenario_dump.py
 """
-import glob
 import json
-import sys
-
-# docker/run.ps1 exports PYTHONPATH=/work, which REPLACES the image's own PYTHONPATH - and
-# that is where dolfinx and gmsh live (they are not in site-packages). Without this, importing
-# the very modules this script exists to read fails with ModuleNotFoundError. Appending, not
-# prepending, so /work still wins for our own packages.
-sys.path += (glob.glob("/usr/local/dolfinx-real/lib/python3.*/dist-packages")
-             + ["/usr/local/lib"])
 
 from mesh import ili_mesh as g          # geometry + mesh size targets (mm)
 from repro import ili_forward as s      # materials, source, time base (SI)

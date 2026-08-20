@@ -15,6 +15,7 @@ aliases it does not use.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -200,8 +201,7 @@ class QueueView(QWidget):
             "percent": None if frac is None else 100.0 * float(frac),
             "detail": getattr(progress, "detail", "") or "",
             "ms_per_step": getattr(progress, "ms_per_step", None),
-            "eta_s": (lambda m: None if m is None else 60.0 * float(m))(
-                getattr(progress, "eta_seconds", None)),
+            "eta_s": getattr(progress, "eta_seconds", None),   # already seconds
         })
 
 
@@ -320,10 +320,94 @@ def demo() -> None:
     q.card("g5")._cancel.click()
     assert seen == ["g5"], seen
 
-    # core.runner is absent in this workstream; attaching must be a no-op, not a crash.
-    assert q.attach_runner() == []
     for state in TERMINAL:
         assert state in STATE_COLOR
+
+    # The real Runner's signal names, checked against the class itself so this pane cannot
+    # drift from core/runner.py without the self-check failing.
+    try:
+        from core.runner import Runner
+    except Exception:
+        Runner = None
+    if Runner is not None:
+        for name in ("queue_changed", "job_started", "job_finished", "job_progress",
+                     "job_log", "cancel"):
+            assert hasattr(Runner, name), name
+
+    # Behaviour is exercised against a stub with that same API, because submitting to the real
+    # runner would launch a container - and no self-check may start a 2.4 h solve.
+    from PySide6.QtCore import QObject
+    from model.spec import RunConfig, Stage, plan
+
+    class _Spec:
+        def __init__(self, j):
+            self.stage, self.config, self.label = j.stage, j.config, j.label
+
+    class _Job:
+        def __init__(self, jid, j, state):
+            self.job_id, self.spec, self.state = jid, _Spec(j), state
+            self.started, self.ended, self.ms_per_step = time.time() - 30, None, 4.1
+
+    class _State:
+        def __init__(self, v):
+            self.value = v
+
+    class _Runner(QObject):
+        queue_changed = Signal()
+        job_started = Signal(str)
+        job_finished = Signal(str, str)
+        job_progress = Signal(str, object)
+        job_log = Signal(str, str)
+
+        def __init__(self):
+            super().__init__()
+            specs = plan(RunConfig())
+            self._jobs = [_Job(f"gui_{i}_{s.stage.value}", s, _State("running" if i else
+                                                                    "succeeded"))
+                          for i, s in enumerate(specs)]
+            self.cancelled: list[str] = []
+
+        def jobs(self):
+            return list(self._jobs)
+
+        def job(self, jid):
+            return next((j for j in self._jobs if j.job_id == jid), None)
+
+        def cancel(self, jid):
+            self.cancelled.append(jid)
+
+    r = _Runner()
+    q2 = QueueView()
+    wired = q2.attach_runner(r)
+    assert wired == ["queue_changed", "job_started", "job_finished", "job_progress",
+                     "job_log"], wired
+    assert len(q2._cards) == 3, list(q2._cards)          # mesh, forward, image
+    fwd = next(jid for jid in q2._cards if jid.endswith("forward"))
+    card = q2.card(fwd)
+    assert "deg 4" in card.view.summary and "+20 deg" in card.view.summary, card.view.summary
+    assert "gpu" in card.view.summary
+
+    from core.logparse import parse_line
+    prog = parse_line(Stage.FORWARD,
+                      "  step 140000/182457 (77%)  4.1 ms/step  elapsed 9.6 min  ETA 2.9 min")
+    assert prog is not None
+    r.job_progress.emit(fwd, prog)
+    assert abs(card.view.percent - 76.7) < 0.2, card.view.percent
+    assert abs(card.view.eta_s - 174.0) < 1.0, card.view.eta_s   # seconds, not minutes again
+    assert "step 140000/182457" in card._numbers.text()
+
+    # A line the parser rejects arrives as job_log and must survive a state change.
+    r.job_progress.emit(fwd, None)
+    r.job_log.emit(fwd, "free(): invalid pointer")
+    r.queue_changed.emit()
+    assert "free(): invalid pointer" in card.log_text()
+    assert card.view.eta_s is not None, "a queue resync must not blank the ETA"
+
+    card._cancel.click()
+    assert r.cancelled == [fwd], r.cancelled
+
+    # With no runner to borrow, attaching must be a no-op rather than a second Runner.
+    assert QueueView().attach_runner() == []
 
     q.grab()
     print("queue.demo: ok")

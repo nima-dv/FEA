@@ -275,9 +275,25 @@ def all_estimates(config: RunConfig, sc: scen.Scenario,
             estimated_runtime(config, sc, history), estimated_disk(config))
 
 
+def consequences(config: RunConfig, history: list[dict] | None = None) -> dict:
+    """Flat mapping for widgets/consequences.py, which asks by key rather than by dataclass.
+
+    Loads the scenario from cache, never the container: this runs on every keystroke in the
+    form. Units are the ones that widget's formatters expect - seconds, MB, plain counts.
+    """
+    sc = scen.load()
+    r = nodes_per_wavelength(config, sc)
+    return {"nodes_per_wavelength": r.value, "binding": r.binding,
+            "dt": estimated_dt(config, sc).value,
+            "steps": estimated_steps(config, sc).value,
+            "runtime_s": estimated_runtime(config, sc, history).value,
+            "disk_mb": estimated_disk(config).value / 1e6,
+            "cells": estimated_cells(config).value, "dof": estimated_dof(config).value}
+
+
 def demo() -> None:
     """Self-check against the MEASURED production run, which is the only real test here."""
-    sc = scen.load(allow_container=False)
+    sc = scen.load()
     c = RunConfig()                                    # defaults = the published +20 deg run
 
     r = nodes_per_wavelength(c, sc)
@@ -321,6 +337,11 @@ def demo() -> None:
     assert abs(wide - 1021e6) / 1021e6 < 0.05, wide
 
     assert len(all_estimates(c, sc)) == 7
+    # the widget contract: every key views/consequences.py renders, in its unit
+    q = consequences(c)
+    for k in ("nodes_per_wavelength", "dt", "steps", "runtime_s", "disk_mb", "binding"):
+        assert k in q, k
+    assert abs(q["disk_mb"] - estimated_disk(c).value / 1e6) < 1e-6
     print(f"derived.demo: ok  N={r.value:.2f} ({r.binding})  dt={dt.value*1e9:.4f} ns  "
           f"steps={n.value}  gpu={gpu.value/60:.2f} min  cpu={cpu.value/3600:.2f} h")
 

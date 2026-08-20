@@ -240,14 +240,25 @@ gives about <span class="n">3.3</span> facets per element. It costs cells but no
 because water is <span class="n">3.8&times;</span> slower than steel, so even these small cells
 imply a larger stable step than the steel already forces.</p>
 
-<h3>Where this sizing is tightest &mdash; and it is not the water</h3>
-<p>Because water and the array band are the finest regions, the binding constraint is
-<strong>steel shear at the pulse's upper edge</strong>. At <span class="n">8</span> MHz the
-shear wavelength is <span class="n">0.388</span> mm against a <span class="n">0.448</span> mm
-cell, which is about <span class="n">3.5</span> nodes per wavelength. At the
-<span class="n">4</span> MHz centre everything sits at <span class="n">6.9</span> or better.
-This is a real limitation of the current mesh rather than a solved problem, and it is the one
-place where refining the steel would beat raising the element degree.</p>
+<h3>Where this sizing is tightest, and why the two regions nearly tie</h3>
+<p>Evaluated at the pulse's <span class="n">8</span> MHz upper edge rather than its
+<span class="n">4</span> MHz centre, the water and the steel land within
+<span class="n">3%</span> of each other: <span class="n">3.35</span> nodes per wavelength in
+the water against <span class="n">3.46</span> for steel shear. <strong>The water binds, just
+barely.</strong> That near-tie is the design working: steel cells are deliberately
+<span class="n">2.0&times;</span> the water cells because the shear wavelength is about twice
+the water one, so neither region is wasted on the other's requirement. It does not tie
+exactly because <span class="n">c<sub>S</sub>/c<sub>f</sub> = 2.067</span> slightly outruns
+the <span class="n">2.0</span> size ratio.</p>
+<p>Two things follow that are easy to get backwards. Steel is the <em>coarsest</em> region at
+<span class="n">0.448</span> mm and is nonetheless no better resolved than the finest one, so
+"the water is the fine part, therefore the water is fine" does not hold. And steel
+<em>compressional</em> sits at <span class="n">6.36</span> nodes per wavelength &mdash; the
+fastest wave, the one that sets the time step, is never the resolution criterion. At the
+<span class="n">4</span> MHz centre everything is at <span class="n">6.7</span> or better.
+This is a real limitation of the current mesh rather than a solved problem, and refining both
+regions together is what would move it &mdash; refining either alone buys
+<span class="n">3%</span>.</p>
 </div>
 
 <h2 class="col"><span class="num">05</span>The one decision that makes the comparison fair</h2>

@@ -37,6 +37,13 @@ class Finding:
     field: str          # the RunConfig field name the UI attaches this to
     message: str        # one line, states the number and what to do about it
 
+    @property
+    def level(self) -> str:
+        """BLOCK or WARN as a string. views/simulate.py reads `.level` to decide whether to
+        disable Run; without it that code falls back to "warn" and a BLOCK leaves the button
+        live, which is the one outcome this whole module exists to prevent."""
+        return self.severity.name
+
 
 @dataclass(frozen=True)
 class Context:
@@ -49,6 +56,7 @@ class Context:
     """
     free_bytes: int | None = None
     kwave_case: str | None = None                 # path to the k-Wave npz, None if absent
+    checked_kwave: bool = False                   # True once someone actually looked on disk
     tracked: frozenset[str] = frozenset()
     history: list[dict] = field(default_factory=list)
 
@@ -64,8 +72,17 @@ def domain_extent(config: RunConfig, sc: scen.Scenario) -> tuple[float, float]:
     return sc.x_min, sc.x_max
 
 
-def check(config: RunConfig, sc: scen.Scenario, context: Context) -> list[Finding]:
-    """Everything wrong with this configuration, blocks first."""
+def check(config: RunConfig, sc: scen.Scenario | None = None,
+          context: Context | None = None) -> list[Finding]:
+    """Everything wrong with this configuration, blocks first.
+
+    Both extra arguments are optional so the form can call check(cfg) on every keystroke: the
+    scenario then comes from the cache, and an empty context means the rules that need outside
+    evidence (free space, the k-Wave case, the tracked file set) stay silent rather than
+    guess. The runner passes a full context, which is where those rules earn their keep.
+    """
+    sc = sc or scen.load()
+    context = context or Context()
     out: list[Finding] = []
 
     # --- BLOCK: an extent the mesh script itself refuses ---------------------------------
@@ -97,7 +114,9 @@ def check(config: RunConfig, sc: scen.Scenario, context: Context) -> list[Findin
                            f"{context.free_bytes/1e9:.2f} GB free"))
 
     # --- BLOCK: a comparison with nothing to compare to ---------------------------------
-    if config.compare_kwave and not context.kwave_case:
+    # `checked_kwave` guards against blocking on absent evidence: the form knows nothing
+    # about the filesystem, and a Run button disabled because nobody looked is just a bug.
+    if config.compare_kwave and context.checked_kwave and not context.kwave_case:
         out.append(Finding(Severity.BLOCK, "compare_kwave",
                            "no k-Wave case on disk for this scenario - run "
                            "tools/extract_kwave_case.py, or turn the comparison off"))
@@ -139,8 +158,9 @@ def blocked(findings: list[Finding]) -> bool:
 
 
 def demo() -> None:
-    sc = scen.load(allow_container=False)
-    ctx = Context(free_bytes=500 * 10**9, kwave_case="/raw/kwave_odnotch4mm_20.npz")
+    sc = scen.load()
+    ctx = Context(free_bytes=500 * 10**9, kwave_case="/raw/kwave_odnotch4mm_20.npz",
+                  checked_kwave=True)
 
     # the published configuration must be clean: it IS the record, so anything it triggers
     # would fire on every published figure too
@@ -162,7 +182,12 @@ def demo() -> None:
     assert blocked(bad) and bad[0].field == "artifact_reduction", bad
 
     # comparison with no case on disk, and no room on disk
-    assert blocked(check(RunConfig(), sc, Context(kwave_case=None)))
+    assert blocked(check(RunConfig(), sc, Context(checked_kwave=True)))
+    assert check(RunConfig(), sc, Context()) == [], "no evidence, no findings"
+    # the live form calls check(cfg) with nothing else, and BLOCK must read as BLOCK there
+    assert [f.level for f in check(RunConfig(scale=2.0))] == ["WARN"]
+    assert check(RunConfig(snapshots=240), None,
+                 Context(free_bytes=10**8))[0].level == "BLOCK"
     assert blocked(check(RunConfig(snapshots=240), sc,
                          Context(free_bytes=10**8, kwave_case="x")))
 

@@ -43,7 +43,10 @@ CHECKED = Qt.CheckState.Checked
 UNCHECKED = Qt.CheckState.Unchecked
 ROLE = Qt.ItemDataRole.UserRole
 
-# The real flags of src/backend/viz/wavefield_gif.py, with its own defaults and help text.
+# The real flags of src/backend/viz/wavefield_gif.py, with THAT SCRIPT's defaults and help
+# text - so what the dialog shows is what the script does when a field is left alone. Note that
+# model/spec.py's FIGURES stage picks its own values for the published animation (stride 8,
+# fps 7, colors 24, smooth 2); this dialog is for re-rendering by hand, not for editing that.
 # Kept as data so the dialog cannot drift from the script: if a flag changes there, this list
 # is the one place to correct, and `--clip/--smooth/--stills` are deliberately not exposed
 # (cosmetic smoothing has to be declared in a caption, so it is not a GUI convenience).
@@ -211,7 +214,7 @@ def export_bundle(runs: Sequence[RunEntry], files: Iterable[Path], dest: Path,
     return written
 
 
-class ExportPane(QWidget):
+class ExportView(QWidget):
     """Checkbox tree of assets, a destination, and one button that copies."""
 
     exported = Signal(str)
@@ -359,7 +362,7 @@ def demo() -> None:
     assert runs, "nothing to export - discovery found no runs"
     baseline = next(r for r in runs if r.tag is None and r.angle == 20.0)
 
-    pane = ExportPane([baseline])
+    pane = ExportView([baseline])
     pane.resize(900, 600)
     files = pane.selected_files()
     assert files and all(p.exists() for p in files), files

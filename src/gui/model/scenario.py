@@ -73,6 +73,11 @@ class Scenario:
     source: str = "fallback"
 
     @property
+    def array_x1(self) -> float:
+        """Far end of the aperture, mm. widgets/crosssection.py asks for it by this name."""
+        return self.array_x0 + self.aperture
+
+    @property
     def f_upper(self) -> float:
         """Upper usable frequency of a 1-cycle burst: ~2 f0.
 
@@ -145,11 +150,13 @@ def refresh(timeout: float = 300.0) -> Scenario:
     return sc
 
 
-def load(allow_container: bool = True) -> Scenario:
-    """Cache -> container -> fallback, in that order. Never raises.
+def load(allow_container: bool = False) -> Scenario:
+    """Cache -> fallback. Never raises, and by default never touches Docker.
 
-    Cache first because startup must not wait on Docker, and these constants change only when
-    the backend changes, which is a commit away and not a runtime event.
+    allow_container defaults to FALSE because the UI calls this while building the window: a
+    machine with Docker stopped would otherwise sit through a socket timeout before painting.
+    These constants change only when the backend changes, which is a commit away and not a
+    runtime event, so the cache is the right default and refresh() is the explicit way in.
     """
     if CACHE.exists():
         try:
@@ -164,8 +171,33 @@ def load(allow_container: bool = True) -> Scenario:
     return FALLBACK
 
 
+def describe(sc: Scenario | None = None) -> tuple[tuple[str, str], ...]:
+    """Rows for the read-only Scenario panel: (label, text), in reading order.
+
+    Formatted here rather than in the view because the unit is part of the fact - a bare
+    "193.675" invites the reader to guess metres, and the drawing is in millimetres.
+    """
+    s = sc or load()
+    return (
+        ("pipe", f"ID {2*s.r_id:.2f} / OD {2*s.r_od:.2f} mm, wall {s.wall:.3f} mm"),
+        ("standoff", f"{s.standoff:.1f} mm of water on the beam axis"),
+        ("array", f"{s.n_elem} elements, {s.pitch:.2f} mm pitch, "
+                  f"{s.aperture:.1f} mm aperture"),
+        ("source", f"{s.f0/1e6:.0f} MHz, {s.n_cycle} cycle "
+                   f"(usable to ~{s.f_upper/1e6:.0f} MHz)"),
+        ("steel", f"c_P {s.c_p:.0f} / c_S {s.c_s:.0f} m/s, rho {s.rho_s:.0f} kg/m3"),
+        ("water", f"c {s.c_f:.0f} m/s, rho {s.rho_f:.0f} kg/m3"),
+        ("notch", f"{s.notch_depth:.1f} mm deep x {s.notch_width:.1f} mm wide at "
+                  f"x = {s.notch_x:.2f} mm"),
+        ("domain", f"{s.x_min:+.1f} to {s.x_max:+.1f} mm (limit "
+                   f"{s.x_limit_lo:+.2f} to {s.x_limit_hi:+.2f})"),
+        ("record", f"{s.t_end*1e6:.0f} us at CFL {s.cfl:.2f}"),
+        ("these facts came from", s.source),
+    )
+
+
 def demo() -> None:
-    sc = load(allow_container=False)
+    sc = load()
     # The fallback must agree with whatever the cache holds, or the two disagree silently the
     # day Docker is down. Tolerance, not equality: the dump computes wall = r_od - r_id, which
     # is 9.524999999999977 in binary, and the hand-written copy says 9.525.
@@ -181,6 +213,10 @@ def demo() -> None:
     assert sc.notch_depth < sc.wall, "a notch deeper than the wall is not a notch"
     assert sc.x_limit_lo < sc.x_min < sc.x_max < sc.x_limit_hi
     assert abs(sc.f_upper - 8.0e6) < 1.0, "1-cycle 4 MHz burst: size the mesh at 8 MHz"
+    assert abs(sc.array_x1 - 76.5) < 1e-9, sc.array_x1
+    rows = describe(sc)
+    assert len(rows) >= 8 and all(len(r) == 2 and r[1] for r in rows)
+    assert "9.525" in dict(rows)["pipe"], dict(rows)["pipe"]
     # Water is the slower material, so its wavelength is the shorter one - the reason the
     # water gap is meshed FINER than the steel wall even though the crack is in the steel.
     assert sc.c_f < sc.c_s < sc.c_p and sc.h_water < sc.h_steel

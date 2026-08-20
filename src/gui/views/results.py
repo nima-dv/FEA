@@ -20,6 +20,7 @@ never writes one; export copies elsewhere. Re-run only emits a signal - it start
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -91,31 +92,6 @@ class RunEntry:
     def assets(self) -> list[Path]:
         return [*self.figures, *self.gifs]
 
-    @classmethod
-    def from_manifest(cls, path: Path, root: Path) -> "RunEntry":
-        """Read one gui_runs/*.json.
-
-        Keys are read tolerantly: core/manifest.py is a sibling workstream and only its
-        purpose is fixed ("params, argv, timings, outputs"), not its spelling. A manifest that
-        cannot be parsed is skipped by the caller rather than taking the gallery down.
-        """
-        d = json.loads(path.read_text(encoding="utf-8"))
-        get = d.get
-        cfg = get("config") or get("params") or get("run_config")
-        tag = get("tag") or (cfg or {}).get("tag")
-        raw = get("outputs") or get("files") or get("figures") or []
-        paths = [_abs(p, root) for p in raw if isinstance(p, str)]
-        pngs = prefer_unannotated([p for p in paths if p.suffix.lower() == ".png" and p.exists()])
-        gifs = [p for p in paths if p.suffix.lower() == ".gif" and p.exists()]
-        npz = [p for p in paths if p.suffix.lower() == ".npz" and p.exists()]
-        argv = _normalise_argv(get("argv") or get("commands") or get("jobs") or [])
-        angle = (cfg or {}).get("angle")
-        return cls(run_id=str(get("run_id") or get("id") or tag or path.stem),
-                   title=str(get("label") or get("title") or tag or path.stem),
-                   angle=float(angle) if isinstance(angle, (int, float)) else None,
-                   tag=tag, figures=pngs, gifs=gifs, npz=npz, metrics=get("metrics"), argv=argv,
-                   config=cfg, manifest=path, source="manifest")
-
 
 def _abs(p: str, root: Path) -> Path:
     """Manifest paths are relative to the results root (that is what the container sees)."""
@@ -172,18 +148,110 @@ def discover_published(root: Path) -> list[RunEntry]:
     return out
 
 
+def _manifest_docs(gui: Path) -> list[dict]:
+    """Every readable manifest, with its own path attached. Corrupt ones are skipped.
+
+    core/manifest.py writes one file PER JOB, not per run, and rewrites it when the job ends -
+    so a half-written file is possible and must cost one manifest, not the gallery.
+    """
+    out = []
+    for p in sorted(gui.glob("*.json")):
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+        except (ValueError, OSError, UnicodeDecodeError):
+            continue
+        if isinstance(doc, Mapping):
+            out.append({**doc, "_path": p})
+    return out
+
+
+def _output_paths(doc: Mapping[str, Any], root: Path) -> list[Path]:
+    """manifest outputs are [{"path": rel, "bytes":, "mtime":}]; plain strings also accepted."""
+    out = []
+    for o in doc.get("outputs") or []:
+        rel = o.get("path") if isinstance(o, Mapping) else o
+        if isinstance(rel, str):
+            out.append(_abs(rel, root))
+    return out
+
+
+def _tag_of(config: Mapping[str, Any]) -> str | None:
+    """The run's filename tag, computed by the contract rather than guessed from filenames."""
+    cfg = config_to_runconfig(config)
+    return cfg.tag() if hasattr(cfg, "tag") else None
+
+
+def _run_facts(docs: list[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """The measured numbers a manifest actually carries, one column per stage.
+
+    Not the imaging metrics: `repro/compare_images.py` prints its head-to-head table to stdout
+    and the manifest does not capture it yet, so those live in the job's log. What is here is
+    measured, not modelled - ms/step, problem size, wall time, exit code.
+    """
+    cols: dict[str, dict[str, Any]] = {}
+    for d in docs:
+        started, ended = d.get("started") or 0.0, d.get("ended")
+        cols[str(d.get("stage") or d.get("job_id") or "?")] = {
+            "state": d.get("state", "?"),
+            "exit code": "-" if d.get("exit_code") is None else d["exit_code"],
+            "ms/step": "-" if d.get("ms_per_step") is None else d["ms_per_step"],
+            "size (DOF/cells)": "-" if not d.get("size") else d["size"],
+            "wall time [s]": round(ended - started, 1) if (ended and started) else "-",
+        }
+    return cols
+
+
+def _entry_from_docs(docs: list[dict], root: Path) -> RunEntry:
+    docs = sorted(docs, key=lambda d: d.get("started") or 0.0)
+    cfg = next((d.get("config") for d in docs if d.get("config")), None) or {}
+    tag = _tag_of(cfg)
+    run_id = tag or str(docs[0].get("job_id") or docs[0]["_path"].stem)
+    # Deduplicated: the same output can be declared by more than one stage (the image stage's
+    # png is also listed as the run's headline figure), and a figure shown twice reads as two.
+    paths = list(dict.fromkeys(p for d in docs for p in _output_paths(d, root)))
+    exist = [p for p in paths if p.exists()]
+    angle = cfg.get("angle")
+    states = [str(d.get("state", "?")) for d in docs]
+    commit = next((d.get("commit") for d in docs if d.get("commit")), "")
+    label = next((d.get("label") for d in docs if d.get("label")), "")
+    note = "   ".join(x for x in (
+        f"commit {commit}" if commit else "",
+        f"stages: {' -> '.join(states)}",
+        "MISSING OUTPUTS - the job reported success but the files are not on disk"
+        if len(exist) < len(paths) else "") if x)
+    return RunEntry(
+        run_id=run_id,
+        title=f"{run_id}" + (f"  {angle:+.0f} deg" if isinstance(angle, (int, float)) else "")
+              + (f"  {label}" if label else ""),
+        angle=float(angle) if isinstance(angle, (int, float)) else None,
+        tag=tag,
+        figures=prefer_unannotated([p for p in exist if p.suffix.lower() == ".png"]),
+        gifs=[p for p in exist if p.suffix.lower() == ".gif"],
+        npz=[p for p in exist if p.suffix.lower() == ".npz"],
+        metrics=next((d["metrics"] for d in docs if d.get("metrics")), None)
+                or _run_facts(docs),
+        argv=[list(d["argv"]) for d in docs if d.get("argv")],
+        config=cfg or None, manifest=docs[0]["_path"], source="manifest", note=note)
+
+
 def discover_runs(root: Path | None = None) -> list[RunEntry]:
-    """GUI manifests newest first; the published record when there are none yet."""
+    """GUI runs newest first; the published record when there are none yet.
+
+    One RunConfig = one run, so the per-job manifests are grouped by their config: the mesh,
+    forward and image jobs of one configuration belong on one card, and showing three cards
+    for one solve would misrepresent how much has been run.
+    """
     root = root or results_root()
-    runs: list[RunEntry] = []
     gui = root / "gui_runs"
-    if gui.is_dir():
-        for p in sorted(gui.glob("*.json"), key=lambda q: q.stat().st_mtime, reverse=True):
-            try:
-                runs.append(RunEntry.from_manifest(p, root))
-            except Exception as exc:                       # one bad manifest, not a dead pane
-                runs.append(RunEntry(run_id=p.stem, title=f"{p.stem}  (unreadable)",
-                                     manifest=p, source="manifest", note=f"{type(exc).__name__}: {exc}"))
+    groups: dict[str, list[dict]] = {}
+    order: list[tuple[float, str]] = []
+    for doc in _manifest_docs(gui) if gui.is_dir() else []:
+        cfg = doc.get("config")
+        key = json.dumps(cfg, sort_keys=True) if cfg else str(doc.get("job_id") or doc["_path"])
+        groups.setdefault(key, []).append(doc)
+    for key, docs in groups.items():
+        order.append((max(d.get("started") or 0.0 for d in docs), key))
+    runs = [_entry_from_docs(groups[k], root) for _, k in sorted(order, reverse=True)]
     return runs or discover_published(root)
 
 
@@ -424,12 +492,17 @@ class RunDetail(QWidget):
 
 
 def rerun_config(entry: RunEntry) -> Any:
-    """The manifest's config as a RunConfig, or the raw mapping if spec is unavailable.
+    """The config a Re-run should carry: a RunConfig, or None if the run recorded none."""
+    return config_to_runconfig(entry.config)
+
+
+def config_to_runconfig(cfg: Mapping[str, Any] | None) -> Any:
+    """A manifest config dict -> RunConfig, or the raw mapping if spec is unavailable.
 
     model/spec.py is the contract and is already on disk, but the import stays lazy so this
-    module still constructs in a checkout where model/ has not landed.
+    module still constructs in a checkout where model/ has not landed. Enum fields are stored
+    by `.value` (core/manifest.config_dict flattens them), so they are rebuilt by value.
     """
-    cfg = entry.config
     if not cfg:
         return None
     try:
@@ -438,7 +511,6 @@ def rerun_config(entry: RunEntry) -> Any:
     except Exception:
         return dict(cfg)
     enums = {"notch": Notch, "device": Device, "artifact_reduction": ArtifactReduction}
-    import dataclasses
     names = {f.name for f in dataclasses.fields(RunConfig)}
     kw: dict[str, Any] = {}
     for k, v in cfg.items():
@@ -589,6 +661,39 @@ def demo() -> None:
     assert len(got) == 1 and getattr(got[0], "angle", None) == 20.0, got
     assert got[0].artifact_reduction.value == "sponge"
     assert got[0].tag().startswith("gui_"), "re-run must keep the safety tag"
+
+    # The manifest path, exercised through core/manifest.py's OWN writer so this reader cannot
+    # drift from the schema. Written to a temp tree - never under the real data/results.
+    import shutil
+    import tempfile
+    from core.manifest import Manifest, collect_outputs, config_dict, write
+    from model.spec import RunConfig, plan
+
+    tmp = Path(tempfile.mkdtemp(prefix="fea_gallery_"))
+    c = RunConfig()
+    (tmp / "compare").mkdir(parents=True)
+    fig = f"compare/compare_p20deg_{c.tag()}_nooverlay.png"
+    shutil.copy2(root / "compare" / "compare_p20deg_nooverlay.png", tmp / fig)
+    for i, j in enumerate(plan(c)):
+        write(Manifest(job_id=f"gui_20260820_1200{i:02d}_{j.stage.value}", stage=j.stage.value,
+                       argv=["docker", "run", "--rm", *j.argv], config=config_dict(c),
+                       label=j.label, commit="abc1234", started=1000.0 + i,
+                       ended=1030.0 + i, exit_code=0, state="succeeded",
+                       ms_per_step=4.1 if j.stage.value == "forward" else None,
+                       size=2094218,
+                       outputs=collect_outputs(tmp, j.outputs)), tmp)
+    runs2 = discover_runs(tmp)
+    assert len(runs2) == 1, [r.run_id for r in runs2]       # three jobs, ONE run
+    e = runs2[0]
+    assert e.source == "manifest" and e.run_id == c.tag(), e.run_id
+    assert len(e.argv) == 3 and e.argv[1][:3] == ["docker", "run", "--rm"], e.argv
+    assert [q.name for q in e.figures] == [Path(fig).name], e.figures
+    assert "commit abc1234" in e.note and "MISSING" not in e.note, e.note
+    h, rws = metrics_table(e.metrics)
+    assert h == ["metric", "mesh", "forward", "image"], h
+    assert ["ms/step", "-", "4.1", "-"] in rws, rws
+    assert rerun_config(e) == c, "config must round-trip through the manifest JSON"
+    shutil.rmtree(tmp, ignore_errors=True)
 
     view.grab()
     print(f"results.demo: ok ({len(runs)} runs, {len(figs)} un-annotated figures)")
