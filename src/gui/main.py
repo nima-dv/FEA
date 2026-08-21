@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QListW
                                QWidget)
 
 import theme
+from widgets.brandmark import BrandMark
 
 TITLE = "Cracken  Crack Simulation"
 
@@ -82,8 +83,7 @@ class MainWindow(QMainWindow):
         rail.setFixedWidth(150)
         rl = QVBoxLayout(rail)
         rl.setContentsMargins(0, 8, 0, 8)
-        brand = QLabel("  Cracken")
-        brand.setObjectName("title")
+        brand = BrandMark("Cracken")
         rl.addWidget(brand)
         self.rail = QListWidget()
         self.rail.setObjectName("railList")
