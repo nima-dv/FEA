@@ -82,9 +82,9 @@ command copy-pastes from the root. Mounts: `src/backend` -> `/work` rw, `data/re
 `/work/results` rw, `presentation` -> `/work/presentation` rw, `data/raw` -> `/raw` **ro**, their
 beamformer -> `/opt/bf` **ro**. So a container-side path stays `results/ili_mesh/...` even though
 on the host the outputs sit outside the source tree. `lib/paths.py` is the single place that
-resolves either layout. `./run.ps1 -PrintArgs` emits the whole contract as JSON (the GUI reads
-it). Override the image with `$env:DVFENICS_IMAGE`; `-Gpu` selects `dvfenics:gpu` and passes the
-device through.
+resolves either layout. `./run.ps1 -PrintArgs` emits the whole contract as JSON (Cracken, the GUI
+at `src/gui/`, reads it). Override the image with `$env:DVFENICS_IMAGE`; `-Gpu` selects
+`dvfenics:gpu` and passes the device through.
 
 **Gotchas that will waste your afternoon:**
 

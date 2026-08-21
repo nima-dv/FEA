@@ -2,8 +2,8 @@
 
 An R&D benchmark and a tool. The benchmark asks whether an open-source finite-element
 ultrasound simulation (FEniCS/DOLFINx, in Docker) can match — and measurably beat — the MATLAB
-**k-Wave** ILI crack-detection simulation. The tool is a desktop app that drives the same
-simulation so an engineer can run it without a terminal.
+**k-Wave** ILI crack-detection simulation. The tool is **Cracken**, a desktop app that drives the
+same simulation so an engineer can run it without a terminal.
 
 The benchmark's answer, at +20° steering, both datasets pushed through the research team's own
 beamformer with byte-identical settings so **the forward solver is the only difference**:
@@ -24,7 +24,7 @@ run.ps1              forwarder, so every documented ./run.ps1 command works from
 docker/              Dockerfile, Dockerfile.gpu, requirements.txt, the real run.ps1
 src/
   backend/           THE SOFTWARE. lib/ mesh/ repro/ tools/ validation/ viz/ tests/
-  gui/               the desktop app that drives it (PySide6)
+  gui/               Cracken, the desktop app that drives it (PySide6)
   kwave/             READ-ONLY submodule: the research team's repo and beamformer
 presentation/        THE EVIDENCE. Its own data, scripts and documents - see its README
 data/                routine run output. Nothing here is version-controlled.
@@ -63,6 +63,8 @@ and image decisions have exactly one definition.
 .\.venv-gui\Scripts\python.exe src\gui\main.py
 ```
 
+This launches **Cracken**, the desktop app.
+
 Simulate (with a live cross-section and the equation being solved), Results, Export, Inspect
 (interactive mesh, wavefield scrubber, image probe), Settings. Every parameter carries a
 plain-language explanation of what it does to the result and what it costs.
@@ -79,6 +81,6 @@ job with `compare_images.py --theirs`.
   experimental method the project runs on
 - **`presentation/README.md`** — what the evidence is and how to rebuild every piece of it
 - **`src/backend/README.md`** — what every script in the software does and why
-- **`src/gui/README.md`** — the app's architecture and its non-negotiables
+- **`src/gui/README.md`** — Cracken's architecture and its non-negotiables
 - **`presentation/docs/brief.html`** and **`dossier.html`** — the decision brief and the
   technical dossier, rebuilt with `presentation/scripts/build_artifacts.py`

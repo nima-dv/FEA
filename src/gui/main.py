@@ -1,4 +1,4 @@
-r"""DV-FEA entry point and window shell.
+r"""Cracken entry point and window shell.
 
 The shell knows the sections and nothing about what is inside them. Views are built
 LAZILY, on first selection, inside a try/except ImportError: four people are writing this app
@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QListW
 
 import theme
 
-TITLE = "DV-FEA  Crack Simulation"
+TITLE = "Cracken  Crack Simulation"
 
 # (rail label, module, preferred class names). The module may not exist yet; see _build_view.
 VIEW_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
         rail.setFixedWidth(150)
         rl = QVBoxLayout(rail)
         rl.setContentsMargins(0, 8, 0, 8)
-        brand = QLabel("  DV-FEA")
+        brand = QLabel("  Cracken")
         brand.setObjectName("title")
         rl.addWidget(brand)
         self.rail = QListWidget()
@@ -314,7 +314,7 @@ class MainWindow(QMainWindow):
     # ---- geometry ------------------------------------------------------------------
 
     def _settings(self) -> QSettings:
-        return QSettings("DarkVision", "DV-FEA")
+        return QSettings("DarkVision", "Cracken")
 
     def _restore_geometry(self) -> None:
         g = self._settings().value("geometry")
@@ -328,7 +328,7 @@ class MainWindow(QMainWindow):
 
 def main(argv: list[str] | None = None) -> int:
     app = QApplication(argv if argv is not None else sys.argv)
-    app.setApplicationName("DV-FEA")
+    app.setApplicationName("Cracken")
     theme.apply(app)
     win = MainWindow()
     win.show()

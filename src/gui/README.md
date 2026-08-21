@@ -1,8 +1,8 @@
-# GUI — work order and contract
+# Cracken — work order and contract
 
-A desktop app that drives the existing backend. **The backend is finished**; nothing here
-adds physics. The app builds an argument list, runs the same Docker command we run by hand,
-and shows what comes back.
+**Cracken** is the desktop app that drives the existing backend. **The backend is finished**;
+nothing here adds physics. The app builds an argument list, runs the same Docker command we run
+by hand, and shows what comes back.
 
 ## Non-negotiables
 

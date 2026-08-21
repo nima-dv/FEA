@@ -96,7 +96,7 @@ feature a figure exists to show. Every comparison figure is a `--no-overlay` ren
 a screenshot. If a number appears in the brief or the dossier, the script that produced it is
 in `scripts/` and the data it read is in `data/`.
 
-**Nothing in here is written by the GUI.** The app writes to `data/results` in the project
+**Nothing in here is written by the GUI.** Cracken writes to `data/results` in the project
 root, its output filenames carry a `gui_` tag prefix, and its runner refuses outright to write
 to any git-tracked path. Three independent reasons a routine run cannot land in the record.
 
