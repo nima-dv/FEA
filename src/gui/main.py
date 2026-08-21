@@ -26,17 +26,17 @@ from widgets.brandmark import BrandMark
 TITLE = "Cracken  Crack Simulation"
 
 # (rail label, module, preferred class names). The module may not exist yet; see _build_view.
+# Export and Settings are removed from the rail by product decision - not built out, and not
+# navigable. views/export.py itself is untouched on disk in case it is wanted again later.
 VIEW_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     # The queue is a section of Simulate, not a rail section: views/simulate.py embeds
     # views/queue.QueueView and forwards attach_runner to it.
     ("Simulate", "views.simulate", ("SimulateView",)),
     ("Results", "views.results", ("ResultsView", "Results")),
-    ("Export", "views.export", ("ExportView", "Export")),
     # Interactive matplotlib views: the real mesh, a wavefield scrubber and an image probe.
     # Exploration only - published figures stay backend-rendered, and the canvas stamps every
     # figure to say so, so a screenshot or a saved PNG carries the caveat with it.
     ("Inspect", "views.inspector", ("InspectView",)),
-    ("Settings", "views.settings", ("SettingsView", "Settings")),
 )
 
 # Status bar fields, in order: (key in the probe dict, caption).
