@@ -20,7 +20,9 @@ WHAT IS PLOTTED, AND WHY IT IS TWO DIFFERENT FIELDS
       water -> div(u)   the incident and reflected PRESSURE beam
       steel -> curl(u)  the mode-converted SHEAR wave, which is what actually images the notch
   Showing both in one frame is the only way to see mode conversion happen: the beam arrives
-  as P in the water and leaves as S at ~45 deg in the steel. Each region is normalised by its
+  as P in the water and leaves as S in the steel at the Snell angle for whatever steering the
+  record was solved at (45 deg at the +-20 deg production angle, but the title now derives it
+  rather than asserting it). Each region is normalised by its
   OWN robust maximum - the two fields have different units and wildly different magnitudes,
   and a shared scale renders one of them invisible.
 
@@ -37,6 +39,7 @@ RUN
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 
 import matplotlib
@@ -53,6 +56,16 @@ X_C, Z_C = 38.25, -173.675
 R_ID, R_OD = 193.675, 203.200
 NOTCH_X, NOTCH_W, NOTCH_DEPTH = 38.25, 1.0, 4.0
 Z_TIP = Z_C + R_OD - NOTCH_DEPTH                      # 25.525 mm
+
+C_WATER, C_S = 1500.0, 3100.0                         # m/s, as mesh/ili_mesh.py
+
+
+def shear_angle_deg(inc_deg: float) -> float | None:
+    """
+    Snell shear refraction angle in the steel, or None if there isn't one.
+    """
+    s = (C_S / C_WATER) * math.sin(math.radians(abs(inc_deg)))
+    return None if s >= 1.0 else math.degrees(math.asin(s))
 
 OUT = RESULTS / "viz"
 
@@ -232,10 +245,19 @@ def main() -> None:
     fig.text(0.012, 0.015, sub, fontsize=7.5, color="0.35")
     fig.tight_layout(rect=(0, 0.03, 1, 1))
 
+    th_s = shear_angle_deg(ang)
+    if th_s is None:
+        mode = "P beam in water (blue/red); no propagating shear past the S critical angle"
+    elif th_s < 1.0:
+        mode = "P beam in water (blue/red); normal incidence, so essentially no mode conversion"
+    else:
+        mode = (f"P beam in water (blue/red) mode-converts to "
+                f"~{th_s:.0f} deg SHEAR in the steel")
+    print(f"steering {ang:+.1f} deg -> shear {'none' if th_s is None else f'{th_s:.2f} deg'}")
+
     def update(i: int):
         coll.set_array(frame_field(i))
-        ttl.set_text(f"ILI wavefield   t = {t_us[i]:6.2f} us      "
-                     f"P beam in water (blue/red) mode-converts to ~45 deg SHEAR in the steel")
+        ttl.set_text(f"ILI wavefield   t = {t_us[i]:6.2f} us      {mode}")
         return coll, ttl
 
     out = Path(args.out) if args.out else OUT / f"{Path(args.inp).stem}.gif"
