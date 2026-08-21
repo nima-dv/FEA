@@ -1,19 +1,24 @@
 /* DarkVision dark theme. The "dollar-token" placeholders are substituted by theme/__init__.py -
    see PALETTE there for the authoritative values. Orange is interaction and emphasis ONLY:
-   it marks what you can act on, what has focus, and what is running. Nothing decorative. */
+   it marks what you can act on, what has focus, and what is running. Nothing decorative.
+
+   Corner radii follow one scale app-wide: 6px for controls (inputs, buttons, list rows),
+   8px for containers (cards, group boxes). Tables stay sharp - Qt does not clip cell content
+   to a rounded table border, so rounding one there reads as a bug, not a style. */
 
 QWidget {
     background: $bg;
     color: $ink;
     font-family: "Segoe UI", "Inter", sans-serif;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 QToolTip {
     background: $surface_hi;
     color: $ink;
-    border: 1px solid $rule;
-    padding: 4px 6px;
+    border: 1px solid $accent_lo;
+    border-radius: 4px;
+    padding: 6px 8px;
 }
 
 /* ---- structure -------------------------------------------------------------- */
@@ -26,7 +31,7 @@ QFrame#rail {
 QFrame[role="card"] {
     background: $surface;
     border: 1px solid $rule;
-    border-radius: 4px;
+    border-radius: 8px;
 }
 
 QFrame[role="hrule"] {
@@ -48,15 +53,15 @@ QListWidget#railList {
 
 QListWidget#railList::item {
     color: $ink_soft;
-    padding: 9px 12px;
+    padding: 10px 12px;
     margin: 1px 6px;
-    border-radius: 4px;
+    border-radius: 6px;
     border-left: 2px solid transparent;
 }
 
 QListWidget#railList::item:hover {
     color: $ink;
-    background: $surface_hi;
+    background: $accent_wash;
 }
 
 QListWidget#railList::item:selected {
@@ -68,10 +73,14 @@ QListWidget#railList::item:selected {
 /* ---- text ------------------------------------------------------------------- */
 
 QLabel { background: transparent; }
-QLabel#caption, QLabel[role="caption"] { color: $ink_soft; }
+QLabel#caption, QLabel[role="caption"] {
+    color: $ink_soft;
+    padding: 1px 0px;
+    letter-spacing: 0.1px;
+}
 
 QLabel#title {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     letter-spacing: 0.4px;
 }
@@ -84,6 +93,7 @@ QLabel[role="num"], QTableWidget#numbers, QPlainTextEdit#log, QTextEdit#log {
 QPlainTextEdit#log, QTextEdit#log {
     background: $surface;
     border: 1px solid $rule;
+    border-radius: 6px;
     color: $ink_soft;
     selection-background-color: $accent_lo;
 }
@@ -108,9 +118,9 @@ QLabel[state="idle"] { color: $idle; }
 QGroupBox {
     background: $surface;
     border: 1px solid $rule;
-    border-radius: 4px;
-    margin-top: 8px;
-    padding: 22px 10px 10px 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding: 24px 12px 12px 12px;
     font-weight: 600;
 }
 
@@ -118,8 +128,9 @@ QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
     left: 8px;
-    padding: 2px 4px;
+    padding: 2px 6px;
     color: $ink_soft;
+    letter-spacing: 0.3px;
 }
 
 QGroupBox::title:hover { color: $accent_hi; }
@@ -131,15 +142,20 @@ QGroupBox::indicator { width: 9px; height: 9px; }
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QAbstractSpinBox {
     background: $surface_hi;
     border: 1px solid $rule;
-    border-radius: 3px;
-    padding: 4px 6px;
+    border-radius: 6px;
+    padding: 5px 8px;
     color: $ink;
     selection-background-color: $accent_lo;
     font-family: $mono;
 }
 
+QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
+    border: 1px solid $accent_lo;
+}
+
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 1px solid $accent;
+    background: $accent_wash;
 }
 
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
@@ -147,7 +163,7 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabl
     background: $surface;
 }
 
-QComboBox::drop-down { border: none; width: 16px; }
+QComboBox::drop-down { border: none; width: 20px; }
 QComboBox::down-arrow {
     /* No image assets in this app: a 4 px orange square reads as an affordance. */
     width: 4px; height: 4px;
@@ -156,6 +172,8 @@ QComboBox::down-arrow {
 QComboBox QAbstractItemView {
     background: $surface_hi;
     border: 1px solid $rule;
+    border-radius: 6px;
+    padding: 2px;
     selection-background-color: $accent_wash;
     selection-color: $ink;
     outline: none;
@@ -165,7 +183,7 @@ QSpinBox::up-button, QSpinBox::down-button,
 QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
     background: $surface;
     border-left: 1px solid $rule;
-    width: 14px;
+    width: 16px;
 }
 QSpinBox::up-button:hover, QSpinBox::down-button:hover,
 QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
@@ -176,17 +194,20 @@ QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
     width: 3px; height: 3px; background: $ink_soft;
 }
 
-QCheckBox, QRadioButton { spacing: 7px; background: transparent; }
+QCheckBox, QRadioButton { spacing: 8px; background: transparent; }
 QCheckBox:disabled, QRadioButton:disabled { color: $idle; }
 
 QCheckBox::indicator, QRadioButton::indicator {
-    width: 12px; height: 12px;
+    width: 13px; height: 13px;
     background: $surface_hi;
     border: 1px solid $rule;
 }
 QRadioButton::indicator { border-radius: 7px; }
-QCheckBox::indicator { border-radius: 2px; }
-QCheckBox::indicator:hover, QRadioButton::indicator:hover { border: 1px solid $accent_hi; }
+QCheckBox::indicator { border-radius: 3px; }
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border: 1px solid $accent_hi;
+    background: $accent_wash;
+}
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {
     background: $accent;
     border: 1px solid $accent;
@@ -204,11 +225,11 @@ QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled 
 QPushButton {
     background: $surface_hi;
     border: 1px solid $rule;
-    border-radius: 3px;
-    padding: 6px 14px;
+    border-radius: 6px;
+    padding: 7px 16px;
     color: $ink;
 }
-QPushButton:hover  { border: 1px solid $accent_hi; color: $accent_hi; }
+QPushButton:hover  { background: $accent_wash; border: 1px solid $accent_hi; color: $accent_hi; }
 QPushButton:pressed { background: $accent_lo; color: $ink; }
 QPushButton:disabled { color: $idle; border: 1px solid $rule; background: $surface; }
 
@@ -243,7 +264,7 @@ QHeaderView::section {
     color: $ink_soft;
     border: none;
     border-bottom: 1px solid $rule;
-    padding: 4px 6px;
+    padding: 6px 8px;
     font-weight: 600;
 }
 
@@ -254,13 +275,13 @@ QTableCornerButton::section { background: $surface_hi; border: none; }
 QProgressBar {
     background: $surface_hi;
     border: 1px solid $rule;
-    border-radius: 3px;
+    border-radius: 6px;
     text-align: center;
     color: $ink;
     font-family: $mono;
     max-height: 14px;
 }
-QProgressBar::chunk { background: $accent; }
+QProgressBar::chunk { background: $accent; border-radius: 5px; }
 
 QScrollBar:vertical   { background: $bg; width: 10px; margin: 0; }
 QScrollBar:horizontal { background: $bg; height: 10px; margin: 0; }
@@ -282,6 +303,7 @@ QStatusBar {
     background: $surface;
     border-top: 1px solid $rule;
     color: $ink_soft;
+    padding: 2px 4px;
 }
 QStatusBar::item { border: none; }
 QStatusBar QLabel { color: $ink_soft; font-family: $mono; }

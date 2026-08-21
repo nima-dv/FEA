@@ -276,7 +276,7 @@ class RunCard(QFrame):
         self.entry = entry
         self.setObjectName("runCard")
         self.setStyleSheet(
-            f"#runCard {{ background:{SURFACE}; border:1px solid {RULE}; border-radius:6px; }}")
+            f"#runCard {{ background:{SURFACE}; border:1px solid {RULE}; border-radius:8px; }}")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedWidth(THUMB_W + 24)
 

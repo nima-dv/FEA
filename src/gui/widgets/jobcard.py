@@ -88,7 +88,7 @@ def fmt_dur(s: float | None) -> str:
 
 def _chip(text: str, fg: str, bg: str) -> QLabel:
     lab = QLabel(text)
-    lab.setStyleSheet(f"color:{fg}; background:{bg}; border-radius:3px; padding:1px 7px;")
+    lab.setStyleSheet(f"color:{fg}; background:{bg}; border-radius:4px; padding:1px 7px;")
     lab.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return lab
 
@@ -115,7 +115,7 @@ class JobCard(QFrame):
         self.view = JobView.from_obj(view)
         self.setObjectName("jobCard")
         self.setStyleSheet(
-            f"#jobCard {{ background:{SURFACE}; border:1px solid {RULE}; border-radius:6px; }}")
+            f"#jobCard {{ background:{SURFACE}; border:1px solid {RULE}; border-radius:8px; }}")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 
         outer = QVBoxLayout(self)
@@ -141,6 +141,8 @@ class JobCard(QFrame):
         self._bar = QProgressBar()
         self._bar.setTextVisible(False)
         self._bar.setFixedHeight(6)
+        # Radius stays small on purpose: this bar is only 6 px tall, and the app-wide 6/8 px
+        # scale would read as a rendering glitch on a shape this thin.
         self._bar.setStyleSheet(
             f"QProgressBar {{ background:{RULE}; border:none; border-radius:3px; }}"
             f"QProgressBar::chunk {{ background:{ACCENT}; border-radius:3px; }}")
@@ -252,7 +254,7 @@ class JobCard(QFrame):
         self._state.setText(v.state)
         self._state.setStyleSheet(
             f"color:{col}; background:transparent; border:1px solid {col};"
-            f"border-radius:3px; padding:1px 7px;")
+            f"border-radius:4px; padding:1px 7px;")
         self._cancel.setVisible(v.state == "running")
 
         running = v.state == "running"
