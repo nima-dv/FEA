@@ -1,10 +1,14 @@
 r"""The run gallery: cards of what has been produced, and a detail pane for one run.
 
-DISCOVERY IS TWO-SOURCED, ON PURPOSE
-`data/results/gui_runs/*.json` is written by core/manifest.py (another workstream). Until that
-exists the folder is empty, and an empty gallery is untestable, so discovery falls back to the
-PUBLISHED figures already on disk under `data/results/compare/`. Both sources produce the same
-`RunEntry`, so the views never learn which one they are looking at.
+DISCOVERY IS THIS APP'S OWN RUNS, AND NOTHING ELSE
+`data/results/gui_runs/*.json` is written by core/manifest.py. Discovery reads only that -
+never `presentation/`, which is the published record for the R&D challenge, tracked in git,
+and a different tree on purpose (see presentation/README.md). This view used to fall back to
+scanning `presentation/` when no manifest existed yet, so that an empty gallery was still
+testable; that fallback silently made a fresh GUI run compete with, and sometimes disappear
+behind, published data it had no business reading. Removed - an empty gallery is now just an
+empty gallery, with a message saying so, not a reason to reach into evidence that belongs to a
+different part of the project.
 
 ONLY UN-ANNOTATED RENDERS ARE SHOWN
 `repro/compare_images.py` writes an annotated figure and a `_nooverlay` twin from the same
@@ -23,7 +27,6 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,7 +47,6 @@ from widgets.jobcard import INK, INK_SOFT, RULE, SURFACE                       #
 
 FIG_MAX_W = 1000          # figures render at natural size up to this width, then scale down
 THUMB_W = 300
-_ANGLE_RE = re.compile(r"^compare_(p|m)(\d+)deg(?:_(.+?))?_nooverlay\.png$")
 
 
 def results_root() -> Path:
@@ -58,18 +60,6 @@ def results_root() -> Path:
     if env:
         return Path(env)
     return _GUI_ROOT.parents[1] / "data" / "results"      # gui -> src -> repo
-
-
-def presentation_root() -> Path:
-    """Where the PUBLISHED record lives - a different tree from run output since 2026-08-20.
-
-    Keeping them apart is the point: runs land in data/results and may be deleted freely, while
-    everything under presentation/ is evidence and is version-controlled. The gallery reads both.
-    """
-    env = os.environ.get("DVFEA_PRESENTATION")
-    if env:
-        return Path(env) / "data"
-    return _GUI_ROOT.parents[1] / "presentation" / "data"
 
 
 def prefer_unannotated(paths: list[Path]) -> list[Path]:
@@ -97,7 +87,7 @@ class RunEntry:
     argv: list[list[str]] = field(default_factory=list)   # one argv per stage
     config: Mapping[str, Any] | None = None               # RunConfig as plain data
     manifest: Path | None = None
-    source: str = "published"                             # "manifest" | "published"
+    source: str = "manifest"                              # this app's own runs, always
     note: str = ""
 
     @property
@@ -125,38 +115,6 @@ def _normalise_argv(raw: Any) -> list[list[str]]:
                 out.append([str(x) for x in a])
         elif isinstance(item, (list, tuple)):
             out.append([str(x) for x in item])
-    return out
-
-
-def discover_published(root: Path) -> list[RunEntry]:
-    """Every published comparison figure that has an un-annotated render.
-
-    Globs only `*_nooverlay.png`, which is also how the annotated twins get skipped without a
-    second pass. `_clean` (an older spelling of the same thing, superseded per NAMING.md) is
-    excluded by the same glob.
-    """
-    comp = root / "compare"
-    viz = root / "viz"
-    out: list[RunEntry] = []
-    for png in sorted(comp.glob("*_nooverlay.png")):
-        m = _ANGLE_RE.match(png.name)
-        if not m:
-            continue
-        sign, deg, tag = m.group(1), int(m.group(2)), m.group(3)
-        angle = float(deg) * (1 if sign == "p" else -1)
-        token = f"{sign}{deg}deg"
-        entry = RunEntry(run_id=png.stem, title=f"{tag or 'baseline'}  {angle:+.0f} deg",
-                         angle=angle, tag=tag, figures=[png], source="published",
-                         note="published record - read only; argv not captured, see "
-                              "data/results/compare/NAMING.md")
-        # Attach the wavefield animations to the untagged baseline only: they belong to that
-        # configuration, and hanging them off every variant would imply they were re-rendered.
-        if tag is None and viz.is_dir():
-            entry.gifs = sorted(p for p in viz.glob("*.gif") if token in p.name)
-            entry.npz = sorted((root / "ili_forward").glob(f"wavefield_snap*{token}*.npz"))
-            entry.figures += prefer_unannotated(
-                sorted(p for p in viz.glob("*.png") if token in p.name))
-        out.append(entry)
     return out
 
 
@@ -247,16 +205,13 @@ def _entry_from_docs(docs: list[dict], root: Path) -> RunEntry:
 
 
 def discover_runs(root: Path | None = None) -> list[RunEntry]:
-    """GUI runs newest first, then the published record - ALWAYS, not as a fallback.
+    """This app's own runs, newest first. Never reads presentation/ - see the module docstring.
 
     One RunConfig = one run, so the per-job manifests are grouped by their config: the mesh,
     forward and image jobs of one configuration belong on one card, and showing three cards
-    for one solve would misrepresent how much has been run.
-
-    The published record is appended rather than substituted, because the first GUI run used
-    to make it vanish - and the baseline is exactly what a new run needs to be looked at
-    against. It also kept the gallery honest when a run left a manifest but no figures: an
-    interrupted or cleaned-up run is a normal state, not an empty gallery.
+    for one solve would misrepresent how much has been run. A run left with a manifest but no
+    figures - an interrupted or cleaned-up run - still gets a card, with no figures on it: that
+    is a normal state, not an empty gallery.
     """
     root = root or results_root()
     gui = root / "gui_runs"
@@ -268,24 +223,20 @@ def discover_runs(root: Path | None = None) -> list[RunEntry]:
         groups.setdefault(key, []).append(doc)
     for key, docs in groups.items():
         order.append((max(d.get("started") or 0.0 for d in docs), key))
-    runs = [_entry_from_docs(groups[k], root) for _, k in sorted(order, reverse=True)]
-    # The published record is a DIFFERENT tree now; passing `root` would look for
-    # published figures among run output and find none.
-    return runs + discover_published(presentation_root())
+    return [_entry_from_docs(groups[k], root) for _, k in sorted(order, reverse=True)]
 
 
 def compare_pair(entry: RunEntry, root: Path | None = None
                  ) -> tuple[Path, Path, str, str] | None:
     """Two un-annotated images to put either side of the slider, or None.
 
-    A manifest may name the two sides explicitly. Otherwise the pair is this run's comparison
-    figure against the PUBLISHED baseline at the same angle, which is the A/B a reviewer
-    actually wants: same beamformer, same scale, one variable changed.
+    Only source: a manifest that names both sides explicitly (`kwave_png`/`fem_png` in its
+    config). There is no fallback to presentation/ - see the module docstring. Without an
+    explicit pair, the slider simply stays empty; the run's own figures still render below it.
 
     Note what is NOT possible from disk: compare_images.py renders FEM and k-Wave as two panels
-    of ONE png, so there is no separate per-solver image to slide between. If a later stream
-    starts writing them separately, put their paths in the manifest as `fem_png`/`kwave_png`
-    and the first branch below picks them up.
+    of ONE png, so there is no separate per-solver image to slide between unless a later stream
+    starts writing them separately and records their paths in the manifest.
     """
     root = root or results_root()
     cfg = entry.config or {}
@@ -294,16 +245,7 @@ def compare_pair(entry: RunEntry, root: Path | None = None
         pa, pb = _abs(str(a), root), _abs(str(b), root)
         if pa.exists() and pb.exists():
             return pa, pb, "k-Wave", "FEM"
-    if entry.angle is None:
-        return None
-    mine = next((p for p in entry.figures if p.name.startswith("compare_")), None)
-    sign = "p" if entry.angle >= 0 else "m"
-    # The baseline side is published data; only the run's own figure is run output.
-    base = (presentation_root() / "compare"
-            / f"compare_{sign}{abs(entry.angle):.0f}deg_nooverlay.png")
-    if mine is None or not base.exists() or base == mine:
-        return None
-    return base, mine, "published baseline", entry.tag or entry.run_id
+    return None
 
 
 def metrics_table(metrics: Any) -> tuple[list[str], list[list[str]]]:
@@ -629,100 +571,127 @@ class ResultsView(QWidget):
 
 
 def demo() -> None:
-    """Self-check: discovery finds real un-annotated figures, and the detail pane renders one."""
+    """Self-check: discovery reads only this app's own manifests - never presentation/ - and
+    the detail pane renders what it finds. Entirely in temp trees, so nothing here depends on,
+    or writes under, the real data/results or presentation/.
+    """
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    import shutil
+    import tempfile
     from PySide6.QtWidgets import QApplication
+    from core.manifest import Manifest, collect_outputs, config_dict, write
+    from model.spec import RunConfig, plan
     app = QApplication.instance() or QApplication([])
 
-    root = results_root()
-    assert (root / "compare").is_dir(), f"no results on disk at {root}"
-    runs = discover_runs(root)
-    assert runs, "discovery found nothing - the gallery must never be empty during development"
-    figs = [p for r in runs for p in r.figures]
-    assert figs, "no figures discovered at all"
-    assert all(p.exists() for p in figs), "every listed figure must be a real file"
-    # A run whose outputs have been cleaned up still belongs in the gallery, with no figures.
-    assert any(not r.figures for r in runs) or True
-    # The hard rule: nothing annotated. Every comparison figure shown ends _nooverlay.
-    bad = [p.name for p in figs
-           if p.name.startswith("compare_") and not p.stem.endswith("_nooverlay")]
-    assert not bad, bad
-    # And the annotated twins really are on disk, so the filter is doing work, not vacuously true.
-    assert (root / "compare" / "compare_p20deg.png").exists()
-    assert prefer_unannotated([root / "compare" / "compare_p20deg.png"]) == []
+    # prefer_unannotated is a pure function: exercise it directly, no run or real figure needed.
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "a.png").write_bytes(b"x")
+        (d / "a_nooverlay.png").write_bytes(b"y")
+        (d / "b.png").write_bytes(b"z")             # no twin - passes through unchanged
+        kept = prefer_unannotated([d / "a.png", d / "a_nooverlay.png", d / "b.png"])
+        assert sorted(p.name for p in kept) == ["a_nooverlay.png", "b.png"], kept
 
-    view = ResultsView(root)
-    view.resize(1100, 800)
-    assert len(view.runs) == len(runs)
+    # The manifest path, exercised through core/manifest.py's OWN writer so this reader cannot
+    # drift from the schema. Written to a temp tree with no presentation/ anywhere nearby, so
+    # a fallback into it (the bug being fixed) would show up as a failure here, not pass by
+    # accident because the real presentation/ happens to be sitting right there too.
+    tmp = Path(tempfile.mkdtemp(prefix="fea_gallery_"))
+    try:
+        from PySide6.QtGui import QImage           # noqa: PLC0415 - test-only
 
-    variant = next(r for r in runs if r.tag and r.figures)
-    pair = compare_pair(variant, root)
-    assert pair and pair[0].exists() and pair[1].exists(), variant.run_id
-    view.open_run(variant)
-    assert view.detail.slider.ready(), "slider must load both sides of a real pair"
-    assert not view.detail._rerun.isEnabled(), "a published run has no recorded config"
+        c = RunConfig()
+        (tmp / "compare").mkdir(parents=True)
+        annotated = f"compare/figure_{c.tag()}.png"
+        nooverlay = f"compare/figure_{c.tag()}_nooverlay.png"
+        # Real PNGs, not junk bytes: the slider loads these through QPixmap, which needs a
+        # file it can actually decode.
+        img = QImage(4, 4, QImage.Format.Format_RGB32)
+        img.fill(0xFF7A1A)
+        assert img.save(str(tmp / annotated), "PNG") and img.save(str(tmp / nooverlay), "PNG")
+        for i, j in enumerate(plan(c)):
+            extra = [annotated, nooverlay] if j.stage.value == "image" else []
+            write(Manifest(job_id=f"gui_20260820_1200{i:02d}_{j.stage.value}",
+                           stage=j.stage.value, argv=["docker", "run", "--rm", *j.argv],
+                           config=config_dict(c), label=j.label, commit="abc1234",
+                           started=1000.0 + i, ended=1030.0 + i, exit_code=0,
+                           state="succeeded",
+                           ms_per_step=4.1 if j.stage.value == "forward" else None,
+                           size=2094218,
+                           outputs=collect_outputs(tmp, [*j.outputs, *extra])), tmp)
 
-    baseline = next(r for r in runs if r.tag is None and r.angle == 20.0)
-    assert baseline.gifs and all(p.exists() for p in baseline.gifs), baseline.gifs
-    view.open_run(baseline)          # exercises the QMovie path
-    assert view.detail._movies and view.detail._movies[0].isValid()
+        runs = discover_runs(tmp)
+        assert runs, "discovery found nothing in a tree that holds only manifests"
+        assert all(r.source == "manifest" for r in runs), \
+            "discover_runs must return manifest entries only - never a published one"
+        assert len(runs) == 1, [r.run_id for r in runs]        # three jobs, ONE run
+        e = runs[0]
+        assert e.run_id == c.tag(), e.run_id
+        assert len(e.argv) == 3 and e.argv[1][:3] == ["docker", "run", "--rm"], e.argv
+        # The hard rule survives manifest-declared figures too: annotated dropped, twin kept.
+        assert [p.name for p in e.figures] == [Path(nooverlay).name], e.figures
+        assert "commit abc1234" in e.note and "MISSING" not in e.note, e.note
+        h, rws = metrics_table(e.metrics)
+        assert h == ["metric", "mesh", "forward", "image"], h
+        assert ["ms/step", "-", "4.1", "-"] in rws, rws
+        assert rerun_config(e) == c, "config must round-trip through the manifest JSON"
 
-    # A manifest-shaped run: re-run must carry a real RunConfig, and metrics must tabulate.
-    fake = RunEntry(run_id="gui_x", title="gui run", angle=20.0, tag="gui_deg4_s0p8_p20deg",
-                    figures=[figs[0]], source="manifest",
+        # compare_pair: with no explicit kwave_png/fem_png the slider must stay empty - it must
+        # NOT go looking for a baseline anywhere else, presentation/ included.
+        assert compare_pair(e, tmp) is None
+        e2 = dataclasses.replace(e, config={**(e.config or {}),
+                                            "kwave_png": annotated, "fem_png": nooverlay})
+        pair = compare_pair(e2, tmp)
+        assert pair is not None and pair[0].exists() and pair[1].exists(), pair
+
+        view = ResultsView(tmp)
+        view.resize(1100, 800)
+        assert len(view.runs) == 1
+        view.open_run(e2)
+        assert view.detail.slider.ready(), "slider must load an explicitly-declared pair"
+        assert view.detail._rerun.isEnabled()
+        got: list[Any] = []
+        view.rerun_requested.connect(got.append)
+        view.detail._rerun.click()
+        assert len(got) == 1 and got[0] == c, "re-run must hand back the exact RunConfig"
+        view.grab()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A hand-built config exercises fields RunConfig() defaults don't: re-run must still carry
+    # a real RunConfig, and a nested FEM/k-Wave metrics dict must still tabulate.
+    fake = RunEntry(run_id="gui_x", title="gui run", angle=20.0, tag="gui_x",
+                    source="manifest",
                     config={"angle": 20.0, "degree": 4, "device": "gpu", "notch": "present",
                             "artifact_reduction": "sponge", "snap_window": [18.0, 46.0]},
                     metrics={"FEM": {"cnr_rms_db": 12.34}, "k-Wave": {"cnr_rms_db": 15.5}},
                     argv=[["python3", "-u", "repro/ili_forward.py", "--angle", "20.0"]])
     header, rows = metrics_table(fake.metrics)
     assert header == ["metric", "FEM", "k-Wave"] and rows == [["cnr_rms_db", "12.34", "15.5"]]
-    got: list[Any] = []
-    view.rerun_requested.connect(got.append)
-    view.set_runs([fake])
-    view.open_run(fake)
-    assert view.detail._rerun.isEnabled()
-    view.detail._rerun.click()
-    assert len(got) == 1 and getattr(got[0], "angle", None) == 20.0, got
-    assert got[0].artifact_reduction.value == "sponge"
-    assert got[0].tag().startswith("gui_"), "re-run must keep the safety tag"
+    view2 = ResultsView(Path(tempfile.mkdtemp(prefix="fea_gallery_")))
+    got2: list[Any] = []
+    view2.rerun_requested.connect(got2.append)
+    view2.set_runs([fake])
+    view2.open_run(fake)
+    assert view2.detail._rerun.isEnabled()
+    view2.detail._rerun.click()
+    assert len(got2) == 1 and getattr(got2[0], "angle", None) == 20.0, got2
+    assert got2[0].artifact_reduction.value == "sponge"
+    assert got2[0].tag().startswith("gui_"), "re-run must keep the safety tag"
 
-    # The manifest path, exercised through core/manifest.py's OWN writer so this reader cannot
-    # drift from the schema. Written to a temp tree - never under the real data/results.
-    import shutil
-    import tempfile
-    from core.manifest import Manifest, collect_outputs, config_dict, write
-    from model.spec import RunConfig, plan
+    # A run whose outputs have been cleaned up still belongs in the gallery, with no figures -
+    # an interrupted or cleaned-up run is a normal state, not an empty gallery.
+    tmp2 = Path(tempfile.mkdtemp(prefix="fea_gallery_"))
+    try:
+        write(Manifest(job_id="gui_cleaned", stage="mesh", argv=["docker"],
+                       config=config_dict(RunConfig()), commit="abc1234", started=1.0,
+                       ended=2.0, exit_code=0, state="succeeded", outputs=[]), tmp2)
+        cleaned = discover_runs(tmp2)
+        assert len(cleaned) == 1 and not cleaned[0].figures, cleaned
+    finally:
+        shutil.rmtree(tmp2, ignore_errors=True)
 
-    tmp = Path(tempfile.mkdtemp(prefix="fea_gallery_"))
-    c = RunConfig()
-    (tmp / "compare").mkdir(parents=True)
-    fig = f"compare/compare_p20deg_{c.tag()}_nooverlay.png"
-    shutil.copy2(root / "compare" / "compare_p20deg_nooverlay.png", tmp / fig)
-    for i, j in enumerate(plan(c)):
-        write(Manifest(job_id=f"gui_20260820_1200{i:02d}_{j.stage.value}", stage=j.stage.value,
-                       argv=["docker", "run", "--rm", *j.argv], config=config_dict(c),
-                       label=j.label, commit="abc1234", started=1000.0 + i,
-                       ended=1030.0 + i, exit_code=0, state="succeeded",
-                       ms_per_step=4.1 if j.stage.value == "forward" else None,
-                       size=2094218,
-                       outputs=collect_outputs(tmp, j.outputs)), tmp)
-    # discover_runs now APPENDS the published record, and this temp root has a compare/
-    # figure of its own, so count only what came from manifests.
-    runs2 = [r for r in discover_runs(tmp) if r.source == "manifest"]
-    assert len(runs2) == 1, [r.run_id for r in runs2]       # three jobs, ONE run
-    e = runs2[0]
-    assert e.source == "manifest" and e.run_id == c.tag(), e.run_id
-    assert len(e.argv) == 3 and e.argv[1][:3] == ["docker", "run", "--rm"], e.argv
-    assert [q.name for q in e.figures] == [Path(fig).name], e.figures
-    assert "commit abc1234" in e.note and "MISSING" not in e.note, e.note
-    h, rws = metrics_table(e.metrics)
-    assert h == ["metric", "mesh", "forward", "image"], h
-    assert ["ms/step", "-", "4.1", "-"] in rws, rws
-    assert rerun_config(e) == c, "config must round-trip through the manifest JSON"
-    shutil.rmtree(tmp, ignore_errors=True)
-
-    view.grab()
-    print(f"results.demo: ok ({len(runs)} runs, {len(figs)} un-annotated figures)")
+    print("results.demo: ok (manifest-only discovery; presentation/ never read)")
     del app
 
 

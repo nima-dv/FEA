@@ -84,10 +84,10 @@ class ImageProbe(QWidget):
 
     def __init__(self, root: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        from views.results import presentation_root, results_root
-        # The beamformed image caches are PUBLISHED data and live in presentation/;
-        # data/results holds run output, which is a different tree since the split.
-        self.root = root or presentation_root()
+        from views.results import results_root
+        # data/results only - the GUI's own run output. presentation/ is the published record
+        # and is never read by this app (see views/results.py module docstring).
+        self.root = root or results_root()
         self.panels: dict[str, np.ndarray] = {}
         self.x = np.empty(0)
         self.z = np.empty(0)
@@ -259,77 +259,95 @@ class ImageProbe(QWidget):
 
 
 def demo() -> None:
-    """Self-check against a real images_*.npz: the dB scale, the readout, the profile."""
+    """Self-check against a synthetic images_*.npz: the dB scale, the readout, the profile.
+
+    Built in a temp tree, never read from presentation/: this widget's default root is
+    data/results (see __init__), and its self-check must not depend on the published record
+    either - a synthetic fixture is also more precise, since every expected number is known
+    in advance rather than reverse-engineered from a real file.
+    """
     import os
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    import shutil
+    import tempfile
     from types import SimpleNamespace
     from PySide6.QtWidgets import QApplication
-    from views.results import presentation_root, results_root
     app = QApplication.instance() or QApplication([])
 
-    root = presentation_root()
-    found = image_sets(root)
-    assert found, "no images_*.npz under %s" % (root / COMPARE_DIR)
-    path = next((p for p in found if p.name == "images_20.npz"), found[0])
+    root = Path(tempfile.mkdtemp(prefix="fea_imageprobe_"))
+    try:
+        (root / COMPARE_DIR).mkdir(parents=True)
+        nx, nz = 90, 220
+        x = np.linspace(0.0, 50.0, nx)
+        z = np.linspace(0.0, 30.0, nz)
+        xv, zv = np.meshgrid(x, z, indexing="ij")
+        fem = 1.0 + np.sin(xv / 6.0) ** 2 + np.cos(zv / 4.0) ** 2          # strictly positive
+        kwave = 1.0 + np.cos(xv / 5.0) ** 2 + np.sin(zv / 3.0) ** 2
+        path = root / COMPARE_DIR / "images_sample.npz"
+        np.savez(path, **{"FEM_img": fem, "k-Wave_img": kwave, "x": x, "z": z})
 
-    raw = np.load(path)
-    panels, x, z = load_images(path)
-    assert len(panels) >= 1 and all(v.ndim == 2 for v in panels.values())
-    label = next(iter(panels))
-    db, img = panels[label], raw[label + "_img"]
-    # The scale must BE compare_images.py's, not merely resemble it.
-    vmax = float(img.max())
-    want = 20.0 * np.log10(np.maximum(img, vmax * FLOOR_FRAC) / vmax)
-    assert np.allclose(db, want), np.abs(db - want).max()
-    assert abs(db.max()) < 1e-9, "the peak of a panel must sit at exactly 0 dB"
-    # The array floor is the 1e-4 amplitude clamp (-80 dB); -40 is where the COLOUR scale
-    # bottoms out. Conflating the two would silently change what the image shows.
-    assert db.min() >= 20.0 * np.log10(FLOOR_FRAC) - 1e-6, db.min()
-    assert db.shape == (x.size, z.size), (db.shape, x.size, z.size)
+        found = image_sets(root)
+        assert found == [path], found
 
-    w = ImageProbe(root)
-    w.resize(900, 700)
-    w.show()
-    app.processEvents()
-    assert w._im is not None, w.status.text()
-    assert w._im.get_cmap().name == "inferno"
-    assert w._im.get_clim() == (DB_FLOOR, 0.0)
-    assert tuple(w._im.get_extent()) == (float(x[0]), float(x[-1]), float(z[0]),
-                                         float(z[-1]))
-    assert w.canvas.ax.get_aspect() == 1.0, "a beamformed image must be shown to true aspect"
-    # No annotation on the image: only the crosshair pair and the user's profile line.
-    assert not w.canvas.ax.patches and not w.canvas.ax.collections
-    assert len(w.canvas.ax.lines) == 3, [l.get_color() for l in w.canvas.ax.lines]
-    assert not w.canvas.ax.texts
+        raw = np.load(path)
+        panels, xr, zr = load_images(path)
+        assert len(panels) == 2 and all(v.ndim == 2 for v in panels.values())
+        label = next(iter(panels))
+        db, img = panels[label], raw[label + "_img"]
+        # The scale must BE compare_images.py's, not merely resemble it.
+        vmax = float(img.max())
+        want = 20.0 * np.log10(np.maximum(img, vmax * FLOOR_FRAC) / vmax)
+        assert np.allclose(db, want), np.abs(db - want).max()
+        assert abs(db.max()) < 1e-9, "the peak of a panel must sit at exactly 0 dB"
+        # The array floor is the 1e-4 amplitude clamp (-80 dB); -40 is where the COLOUR scale
+        # bottoms out. Conflating the two would silently change what the image shows.
+        assert db.min() >= 20.0 * np.log10(FLOOR_FRAC) - 1e-6, db.min()
+        assert db.shape == (xr.size, zr.size), (db.shape, xr.size, zr.size)
 
-    # Readout: the number under the cursor must be the number in the array.
-    i, j = 40, 60
-    r = w._readout(float(x[i]), float(z[j]), w.canvas.ax)
-    assert "%+7.2f dB" % w.panels[w.panel_pick.currentData()][i, j] in r, r
-    # ... and the readout must not claim dB while the cursor is in the profile axes.
-    assert "dB" not in w._readout(1.0, 2.0, w.prof_ax)
+        w = ImageProbe(root)
+        w.resize(900, 700)
+        w.show()
+        app.processEvents()
+        assert w._im is not None, w.status.text()
+        assert w._im.get_cmap().name == "inferno"
+        assert w._im.get_clim() == (DB_FLOOR, 0.0)
+        assert tuple(w._im.get_extent()) == (float(xr[0]), float(xr[-1]), float(zr[0]),
+                                             float(zr[-1]))
+        assert w.canvas.ax.get_aspect() == 1.0, "a beamformed image must be shown to true aspect"
+        # No annotation on the image: only the crosshair pair and the user's profile line.
+        assert not w.canvas.ax.patches and not w.canvas.ax.collections
+        assert len(w.canvas.ax.lines) == 3, [l.get_color() for l in w.canvas.ax.lines]
+        assert not w.canvas.ax.texts
 
-    # Dragging the profile line moves both the line and the curve beneath it.
-    before = w._profile.get_ydata().copy()
-    w._on_press(SimpleNamespace(inaxes=w.canvas.ax, button=1, xdata=float(x[i]),
-                                ydata=float(z[5])))
-    assert w._dragging and w._jz == 5
-    w._on_motion(SimpleNamespace(inaxes=w.canvas.ax, button=1, xdata=float(x[i]),
-                                 ydata=float(z[200])))
-    w._on_release(None)
-    assert w._jz == 200 and not w._dragging
-    assert not np.array_equal(w._profile.get_ydata(), before), "the profile did not follow"
-    assert w._profile_line.get_ydata()[0] == float(z[200])
-    assert np.allclose(w._profile.get_ydata(), w.panels[w.panel_pick.currentData()][:, 200])
-    assert "profile at z" in w.status.text()
+        # Readout: the number under the cursor must be the number in the array.
+        i, j = 40, 60
+        r = w._readout(float(xr[i]), float(zr[j]), w.canvas.ax)
+        assert "%+7.2f dB" % w.panels[w.panel_pick.currentData()][i, j] in r, r
+        # ... and the readout must not claim dB while the cursor is in the profile axes.
+        assert "dB" not in w._readout(1.0, 2.0, w.prof_ax)
 
-    if len(panels) > 1:
+        # Dragging the profile line moves both the line and the curve beneath it.
+        before = w._profile.get_ydata().copy()
+        w._on_press(SimpleNamespace(inaxes=w.canvas.ax, button=1, xdata=float(xr[i]),
+                                    ydata=float(zr[5])))
+        assert w._dragging and w._jz == 5
+        w._on_motion(SimpleNamespace(inaxes=w.canvas.ax, button=1, xdata=float(xr[i]),
+                                     ydata=float(zr[200])))
+        w._on_release(None)
+        assert w._jz == 200 and not w._dragging
+        assert not np.array_equal(w._profile.get_ydata(), before), "the profile did not follow"
+        assert w._profile_line.get_ydata()[0] == float(zr[200])
+        assert np.allclose(w._profile.get_ydata(), w.panels[w.panel_pick.currentData()][:, 200])
+        assert "profile at z" in w.status.text()
+
         w.panel_pick.setCurrentIndex(1)
         app.processEvents()
         assert w.panel_pick.currentData() != label
         assert abs(w._im.get_array().max()) < 1e-6, "each panel is 0 dB at its own peak"
-    print("imageprobe.demo: ok, %s, panels %s, %dx%d"
-          % (path.name, list(panels), db.shape[0], db.shape[1]))
+        print("imageprobe.demo: ok, synthetic fixture, panels %s, %dx%d"
+              % (list(panels), db.shape[0], db.shape[1]))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 if __name__ == "__main__":

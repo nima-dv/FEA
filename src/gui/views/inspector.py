@@ -43,7 +43,7 @@ if str(_GUI_ROOT) not in sys.path:
 from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QTabWidget,     # noqa: E402
                                QVBoxLayout, QWidget)
 
-from views.results import discover_runs, presentation_root, results_root                          # noqa: E402
+from views.results import discover_runs, results_root                                              # noqa: E402
 from widgets.imageprobe import ImageProbe                                     # noqa: E402
 from widgets.mplcanvas import INK_SOFT, STAMP                                 # noqa: E402
 from widgets.meshview import MeshView                                         # noqa: E402
@@ -56,9 +56,9 @@ _FIG_RE = re.compile(r"^compare_(p|m)(\d+)deg(.*)\.png$")
 def images_for(entry: Any, root: Path) -> Path | None:
     """The images_*.npz behind one run's comparison figure, if it is on disk.
 
-    A manifest may list the npz among its outputs; the published record does not, but its
-    figure name determines it, because compare_images.py writes the pair together. Derived
-    from the name rather than guessed at, and only returned when the file exists.
+    A manifest may list the npz among its outputs; otherwise it is derived from the figure
+    name, because compare_images.py writes the pair together. Only returned when the file
+    exists under `root` - this app's own `data/results`, never presentation/.
     """
     for p in getattr(entry, "npz", []) or []:
         if p.name.startswith("images_"):
@@ -100,8 +100,10 @@ class InspectView(QWidget):
 
     def __init__(self, root: Path | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        # Image caches and animations are published data and live in presentation/.
-        self.root = root or presentation_root()
+        # data/results only - this app's own run output. Defaulting to presentation/ here used
+        # to make a fresh GUI run invisible to this view (its manifests live under
+        # data/results/gui_runs, never under presentation/) - see views/results.py.
+        self.root = root or results_root()
         self.runs = discover_runs(self.root)
 
         self.run_pick = QComboBox()
